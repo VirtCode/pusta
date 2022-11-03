@@ -1,19 +1,24 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
 
+
 #[derive(Serialize, Deserialize)]
-struct Respository {
+pub struct Repository {
 
     location: PathBuf,
+    pub name: String,
 
     modules: Vec<Module>,
 
 }
 
-impl Respository {
+impl Repository {
     pub fn load(folder: &PathBuf) -> anyhow::Result<Self>{
+
+        let name = folder.file_name().ok_or_else(|| Error::msg("Failed to get repo dir name"))?.to_string_lossy().to_string();
 
         let mut modules = vec![];
 
@@ -22,15 +27,15 @@ impl Respository {
             let file = x?.path();
 
             if file.is_dir() {
-                let module = Module::create(&file)?;
+                let module = Module::create(&name, &file)?;
 
                 if let Some(module) = module { modules.push(module) }
             }
         }
 
-
-        Ok(Respository {
+        Ok(Repository {
             location: folder.clone(),
+            name,
             modules
         })
     }
@@ -45,7 +50,7 @@ impl Respository {
                 return Some(module.qualifier.name());
             }
 
-            if let Some(prov) = module.qualifier.provides() {
+            if let Some(prov) = module.qualifier.provide() {
                 if names.contains(prov) { return Some(prov) }
 
                 provides.push(prov.clone());
@@ -55,5 +60,15 @@ impl Respository {
         }
 
         None
+    }
+
+    pub fn module(&self, qualifier: &str) -> Option<&Module> {
+        self.modules.iter().find(|m| m.qualifier.is(qualifier))
+    }
+
+    pub fn provider(&self, qualifier: &str) -> Vec<&Module> {
+        self.modules.iter().filter(|m| {
+            m.qualifier.does_provide(qualifier)
+        }).collect()
     }
 }

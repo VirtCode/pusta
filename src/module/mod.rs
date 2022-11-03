@@ -6,12 +6,14 @@ use crate::module::reader::ModuleConfig;
 
 mod reader;
 
+/// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";
 
 #[derive(Serialize, Deserialize)]
 pub struct Module {
 
     path: PathBuf,
+    repository: String,
     pub qualifier: ModuleQualifier,
 
     name: String,
@@ -21,7 +23,9 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn create(dir: &PathBuf) -> anyhow::Result<Option<Self>> {
+
+    /// Creates a module instance based on a path
+    pub fn create(repo: &String, dir: &PathBuf) -> anyhow::Result<Option<Self>> {
         // Module has to be directory
         if !dir.is_dir() { return Ok(None) }
 
@@ -34,6 +38,7 @@ impl Module {
         let config = ModuleConfig::load(&config)?;
 
         Ok(Some(Self {
+            repository: repo.clone(),
             path: dir.clone(),
 
             qualifier: ModuleQualifier {
@@ -47,18 +52,26 @@ impl Module {
             version: config.version
         }))
     }
+
+    pub fn unique_qualifier(&self) -> String {
+        format!("{}/{}", &self.repository, &self.qualifier.name())
+    }
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct ModuleQualifier {
+    /// Name of the directory
     dir: String,
+    /// Alias defined in the config
     alias: Option<String>,
+    /// Provides defined in the config
     provide: Option<String>
 }
 
 impl ModuleQualifier {
 
-    pub fn qualifies(&self, qualifier: &str) -> bool {
+    /// Returns whether the module provides the named qualifier
+    pub fn does_provide(&self, qualifier: &str) -> bool {
 
         // Provides module
         if let Some(provide) = &self.provide {
@@ -66,11 +79,15 @@ impl ModuleQualifier {
         }
 
         // Is the module
-        if self.name() == qualifier { return true }
-
-        false
+        self.name() == qualifier
     }
 
+    /// Returns whether the module is it
+    pub fn is(&self, qualifier: &str) -> bool {
+        self.name() == qualifier
+    }
+
+    /// Returns qualifying name for module
     pub fn name(&self) -> &String {
         if let Some(alias) = &self.alias {
             alias
@@ -79,8 +96,8 @@ impl ModuleQualifier {
         }
     }
 
-
-    pub fn provides(&self) -> &Option<String> {
+    /// Returns alternative providing name
+    pub fn provide(&self) -> &Option<String> {
         &self.provide
     }
 }

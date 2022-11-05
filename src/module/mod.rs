@@ -1,6 +1,9 @@
 use std::fs;
+use std::fs::File;
 use std::path::PathBuf;
 use anyhow::Error;
+use chksum::Chksum;
+use chksum::prelude::HashAlgorithm;
 use serde::{Deserialize, Serialize};
 use crate::module::reader::ModuleConfig;
 
@@ -55,6 +58,16 @@ impl Module {
 
     pub fn unique_qualifier(&self) -> String {
         format!("{}/{}", &self.repository, &self.qualifier.name())
+    }
+
+    pub fn install(&self) {
+
+    }
+
+    pub fn current_checksum(&self) -> String {
+        File::open(&self.path).map(|mut f| {
+            f.chksum(HashAlgorithm::SHA1).map(|digest| format!("{:x}", digest)).unwrap_or_else(|_| "checksum-making-failed".to_string())
+        }).unwrap_or_else(|_| "checksum-file-reading-failed".to_string())
     }
 }
 

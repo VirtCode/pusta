@@ -20,6 +20,10 @@ pub struct ConfigRepository {
     pub strict_qualifying: bool
 }
 
+pub struct ConfigPackages {
+
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -27,6 +31,7 @@ impl Default for Config {
                 main: None,
                 strict_qualifying: false
             }
+
         }
     }
 }

@@ -1,14 +1,17 @@
 use std::fs;
+use std::fs::File;
 use std::path::{Path, PathBuf};
-use anyhow::Error;
+use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
+
+pub const REPOSITORY_CONFIG: &str = "pusta.yml";
 
 
 #[derive(Serialize, Deserialize)]
 pub struct Repository {
 
-    location: PathBuf,
+    pub location: PathBuf,
     pub name: String,
 
     modules: Vec<Module>,
@@ -16,13 +19,24 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn load(folder: &PathBuf) -> anyhow::Result<Self>{
+    pub fn load(folder: &PathBuf, alias: Option<&String>) -> anyhow::Result<Self>{
 
-        let name = folder.file_name().ok_or_else(|| Error::msg("Failed to get repo dir name"))?.to_string_lossy().to_string();
+        // Read config
+        let path = folder.clone().join(REPOSITORY_CONFIG);
+        let config: RepoConfig = serde_yaml::from_reader(File::open(folder.clone().join(REPOSITORY_CONFIG)).with_context(|| format!("Failed to open repository config file at {}", path.to_string_lossy()))?).with_context(|| format!("Failed to parse repository config file at {}", path.to_string_lossy()))?;
 
-        let mut modules = vec![];
+        let name = if let Some(alias) = alias {
+            alias.clone()
+        } else if let Some(alias) = config.repository.alias {
+            alias
+        } else {
+            folder.file_name().ok_or_else(|| Error::msg("Failed to get repo dir name"))?.to_string_lossy().to_string()
+        };
+
 
         // Load modules
+        let mut modules = vec![];
+
         for x in fs::read_dir(folder)? {
             let file = x?.path();
 
@@ -34,7 +48,7 @@ impl Repository {
         }
 
         Ok(Repository {
-            location: folder.clone(),
+            location: fs::canonicalize(folder)?,
             name,
             modules
         })
@@ -71,4 +85,14 @@ impl Repository {
             m.qualifier.does_provide(qualifier)
         }).collect()
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct RepoConfig {
+    repository: RepoData
+}
+
+#[derive(Serialize, Deserialize)]
+struct RepoData {
+    alias: Option<String>
 }

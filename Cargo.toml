@@ -8,9 +8,10 @@ edition = "2021"
 [dependencies]
 
 # Serialization and stuff
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
+serde = { version = "1.0.147", features = ["derive"] }
+serde_yaml = "0.9.14"
 serde_json = "1.0.87"
+serde_with = "2.0.1"
 
 # Logging and prettyness
 anyhow = "1.0.66"

@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 #[command(disable_help_subcommand = true)]
 pub struct Command {
     #[clap(subcommand)]
-    topic: SubCommand
+    pub topic: SubCommand
 }
 
 #[derive(Subcommand)]

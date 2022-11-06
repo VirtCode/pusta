@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use anyhow::Error;
+use crate::config::Config;
 use crate::module::Module;
-use crate::repository::{Repository};
+use crate::module::repository::Repository;
 
 pub const MAIN: &str = "main";
 
@@ -13,20 +15,39 @@ pub struct Registry {
 }
 
 impl Registry {
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
         Registry {
-            strict: false,
-            main: None,
+            strict: config.repositories.strict_qualifying,
+            main: config.repositories.main.clone(),
             repositories: HashMap::new()
         }
     }
 
-    pub fn add(&mut self, repo: &PathBuf) -> anyhow::Result<()>{
-        let repo = Repository::load(repo)?;
+    pub fn add(&mut self, path: &PathBuf, alias: Option<&String>) -> anyhow::Result<&Repository>{
+        let repo = Repository::load(path, alias)?;
 
+        // Check repository conflicts
+        if self.repositories.contains_key(&repo.name) {
+            return Err(Error::msg(format!("There is already a repository loaded with the same alias '{}'", repo.name)))
+        }
+
+        if let Some((_, r)) = self.repositories.iter().find(|(_, r)| { r.location == repo.location }) {
+            return Err(Error::msg(format!("This repository is already added (under the alias '{}')", &r.name)))
+        }
+
+        // Check module conflicts
+        if let Some(qualifier) = repo.check_qualifier_conflicts() {
+            return Err(Error::msg(format!("Two or more modules qualify for the qualifier '{}'", qualifier)))
+        }
+
+        let name = repo.name.clone();
         self.repositories.insert(repo.name.clone(), repo);
 
-        Ok(())
+        Ok(self.repositories.get(&name).unwrap())
+    }
+    
+    pub fn remove(&mut self, alias: &str) {
+        self.repositories.remove(alias);
     }
 
     pub fn get_repository(&self, repo: &str) -> Option<&Repository> {

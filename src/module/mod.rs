@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::module::reader::ModuleConfig;
 
 mod reader;
+pub mod repository;
 
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";
@@ -60,12 +61,12 @@ impl Module {
         format!("{}/{}", &self.repository, &self.qualifier.name())
     }
 
-    pub fn install(&self) {
-
+    pub fn install(&self) -> anyhow::Result<()>{
+        Ok(())
     }
 
     pub fn current_checksum(&self) -> String {
-        File::open(&self.path).map(|mut f| {
+        fs::read_dir(&self.path).map(|mut f| {
             f.chksum(HashAlgorithm::SHA1).map(|digest| format!("{:x}", digest)).unwrap_or_else(|_| "checksum-making-failed".to_string())
         }).unwrap_or_else(|_| "checksum-file-reading-failed".to_string())
     }

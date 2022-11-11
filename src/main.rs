@@ -1,25 +1,33 @@
-use std::env;
+extern crate core;
+
+use std::{env};
+use std::io::{BufReader};
+use std::os::unix::io::{RawFd};
 use std::path::PathBuf;
-use log::LevelFilter;
-use simplelog::{ColorChoice, TerminalMode, TermLogger};
+use log::{error, info, LevelFilter, warn};
 use crate::command::{Command, ModuleCommand, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use crate::manager::Manager;
 use clap::Parser;
+use crate::module::install::shell;
+use crate::output::{logger};
 
 mod command;
 mod module;
 mod manager;
 mod config;
+mod output;
 
 fn main() {
-    TermLogger::init(LevelFilter::Debug, simplelog::Config::default(), TerminalMode::Mixed, ColorChoice::Auto).unwrap();
-
     let command: Command = Command::parse();
-
     let mut config = Config::read();
 
+
+    logger::enable_logging(config.console.log_files, config.console.verbose || command.verbose);
+
     let mut manager = Manager::load(&config);
+
+    println!();
 
     match command.topic {
         SubCommand::Module { action } => {

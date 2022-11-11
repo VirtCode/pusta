@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use log::{debug, error};
+use log::{debug, error, info};
 use crate::config::Config;
 use crate::manager::cache::Cache;
 use crate::manager::registry::Registry;
@@ -55,15 +55,21 @@ impl Manager {
     }
     
     pub fn install_module(&mut self, qualifier: &str) -> anyhow::Result<bool> {
+        info!("Resolving '{}' in added repositories", qualifier);
         let module = self.registry.get(qualifier);
         
         if let Some(module) = module {
+            info!("Installing module {}...", module.unique_qualifier());
 
             module.install()?;
             self.cache.installed_module(module)?;
+
+            info!("");
+            info!("Successfully installed module {}.", module.unique_qualifier());
             
             Ok(true)
         } else {
+            error!("Could not find a module qualifying for '{}'", qualifier);
             Ok(false)
         }
     }

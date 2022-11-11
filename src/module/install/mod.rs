@@ -1,3 +1,5 @@
+pub mod shell;
+
 use std::path::PathBuf;
 
 pub enum InstallAction {

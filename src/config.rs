@@ -10,7 +10,8 @@ pub const CONFIG_FILE: &str = "~/.config/pusta/config.yml";
 #[derive(Deserialize, Serialize)]
 pub struct Config {
 
-    pub repositories: ConfigRepository
+    pub repositories: ConfigRepository,
+    pub console: ConfigConsole
 
 }
 
@@ -24,14 +25,23 @@ pub struct ConfigPackages {
 
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct ConfigConsole {
+    pub log_files: bool,
+    pub verbose: bool
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
             repositories: ConfigRepository {
                 main: None,
                 strict_qualifying: false
+            },
+            console: ConfigConsole {
+                log_files: true,
+                verbose: false
             }
-
         }
     }
 }

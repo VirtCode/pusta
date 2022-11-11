@@ -9,7 +9,7 @@ use crate::module::reader::ModuleConfig;
 
 mod reader;
 pub mod repository;
-mod install;
+pub mod install;
 
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";

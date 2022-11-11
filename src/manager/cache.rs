@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::{Instant, SystemTime, };
 use anyhow::Context;
 use serde_with::{serde_as, TimestampMilliSeconds};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
 use crate::module::Module;
@@ -41,7 +41,7 @@ pub struct CacheModule {
 
 impl Cache {
     pub fn read() -> Self {
-        info!("Reading cache file with installed modules/repositories");
+        info!("Reading installed modules and repositories...");
         if let Ok(c) = Self::try_read() {
             c
         } else {
@@ -77,6 +77,8 @@ impl Cache {
     }
 
     pub fn installed_module(&mut self, m: &Module) -> anyhow::Result<()> {
+        debug!("Adding module entry to cache");
+
         self.modules.push(CacheModule {
             qualifier: m.unique_qualifier(),
             checksum: m.current_checksum(),

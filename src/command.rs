@@ -5,7 +5,11 @@ use clap::{Parser, Subcommand};
 #[command(disable_help_subcommand = true)]
 pub struct Command {
     #[clap(subcommand)]
-    pub topic: SubCommand
+    pub topic: SubCommand,
+
+    // Enables verbose logging
+    #[clap(short, long)]
+    pub verbose: bool
 }
 
 #[derive(Subcommand)]

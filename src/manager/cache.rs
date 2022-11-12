@@ -8,10 +8,12 @@ use serde_with::{serde_as, TimestampMilliSeconds};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
+use crate::module::install::InstalledAction;
 use crate::module::Module;
 use crate::module::repository::Repository;
 
 pub const CACHE_FILE: &str = "~/.config/pusta/cache/installed.json";
+pub const CACHE_LOCATION: &str = "~/.config/pusta/cache/";
 
 #[derive(Deserialize, Serialize)]
 pub struct Cache {
@@ -76,17 +78,44 @@ impl Cache {
         serde_json::to_writer(&f, self).with_context(|| format!("Couldn't write cache installed file to '{}'", path.to_string_lossy()))
     }
 
-    pub fn installed_module(&mut self, m: &Module) -> anyhow::Result<()> {
-        debug!("Adding module entry to cache");
+    pub fn installed_module(&mut self, m: &Module, actions: Vec<InstalledAction>) -> anyhow::Result<()> {
+        let checksum = m.current_checksum();
 
+        debug!("Saving installed actions");
+        let mut path = PathBuf::from(shellexpand::tilde(CACHE_LOCATION).to_string());
+        path.push(checksum.clone());
+        fs::create_dir_all(&path).with_context(|| format!("Couldn't create module cache dir '{}'", path.to_string_lossy()))?;
+
+        let mut actions_path = path.clone();
+        actions_path.push("actions.json");
+        let actions_file = File::create(&actions_path).with_context(|| format!("Couldn't create actions file at '{}'", actions_path.to_string_lossy()))?;
+
+        serde_json::to_writer(&actions_file, &actions).with_context(|| format!("Couldn't write actions to '{}'", actions_path.to_string_lossy()))?;
+
+        debug!("Saving necessary files for uninstallation");
+        for action in actions {
+            if let InstalledAction::Script { uninstall, .. } = action {
+                let mut target = path.clone();
+                target.push(&uninstall);
+
+                let mut source = m.path.clone();
+                source.push(uninstall);
+
+                fs::copy(&source, &target).with_context(|| format!("Failed to copy file to cache ({} -> {})", source.to_string_lossy(), target.to_string_lossy()))?;
+            }
+        }
+
+        debug!("Adding module entry to cache");
         self.modules.push(CacheModule {
             qualifier: m.unique_qualifier(),
-            checksum: m.current_checksum(),
+            checksum,
             install_time: SystemTime::now(),
             update_time: SystemTime::now()
         });
 
-        self.write()
+        self.write()?;
+
+        Ok(())
     }
 
     pub fn add_repo(&mut self, r: &Repository) -> anyhow::Result<()> {

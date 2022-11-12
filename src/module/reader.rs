@@ -2,6 +2,7 @@ use std::fs::File;
 use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use crate::module::install::InstallAction;
 
 #[derive(Deserialize)]
 pub struct ModuleConfig {
@@ -13,6 +14,8 @@ pub struct ModuleConfig {
     pub alias: Option<String>,
     pub provides: Option<String>,
     pub depends: Option<String>,
+
+    pub install: Vec<InstallAction>
 
     // install, actions, variables, lists
 }

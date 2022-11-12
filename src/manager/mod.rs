@@ -3,6 +3,7 @@ use log::{debug, error, info};
 use crate::config::Config;
 use crate::manager::cache::Cache;
 use crate::manager::registry::Registry;
+use crate::module::install::shell::Shell;
 
 mod registry;
 mod cache;
@@ -54,20 +55,29 @@ impl Manager {
         Ok(result)
     }
     
-    pub fn install_module(&mut self, qualifier: &str) -> anyhow::Result<bool> {
+    pub fn install_module(&mut self, qualifier: &str, shell: &Shell) -> anyhow::Result<bool> {
         info!("Resolving '{}' in added repositories", qualifier);
         let module = self.registry.get(qualifier);
         
         if let Some(module) = module {
             info!("Installing module {}...", module.unique_qualifier());
 
-            module.install()?;
-            self.cache.installed_module(module)?;
+            match module.install(shell) {
+                Ok(actions) => {
+                    self.cache.installed_module(module, actions)?;
 
-            info!("");
-            info!("Successfully installed module {}.", module.unique_qualifier());
-            
-            Ok(true)
+                    info!("");
+                    info!("Successfully installed module {}.", module.unique_qualifier());
+
+                    Ok(true)
+                }
+                Err(e) => {
+                    info!("");
+                    error!("Failed to install module {}: {}", module.unique_qualifier(), e);
+
+                    Ok(false)
+                }
+            }
         } else {
             error!("Could not find a module qualifying for '{}'", qualifier);
             Ok(false)

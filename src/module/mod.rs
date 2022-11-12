@@ -4,8 +4,12 @@ use std::path::PathBuf;
 use anyhow::Error;
 use chksum::Chksum;
 use chksum::prelude::HashAlgorithm;
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
+use crate::module::install::{InstallAction, InstalledAction};
+use crate::module::install::shell::Shell;
 use crate::module::reader::ModuleConfig;
+use crate::output;
 
 mod reader;
 pub mod repository;
@@ -17,13 +21,15 @@ const MODULE_CONFIG: &str = "module.yml";
 #[derive(Serialize, Deserialize)]
 pub struct Module {
 
-    path: PathBuf,
+    pub path: PathBuf,
     repository: String,
     pub qualifier: ModuleQualifier,
 
     name: String,
     description: String,
-    version: String
+    version: String,
+
+    install: Vec<InstallAction>
 
 }
 
@@ -54,7 +60,9 @@ impl Module {
 
             name: config.name,
             description: config.description,
-            version: config.version
+            version: config.version,
+
+            install: config.install
         }))
     }
 
@@ -62,8 +70,47 @@ impl Module {
         format!("{}/{}", &self.repository, &self.qualifier.name())
     }
 
-    pub fn install(&self) -> anyhow::Result<()>{
-        Ok(())
+    pub fn install(&self, shell: &Shell) -> anyhow::Result<Vec<InstalledAction>>{
+        let mut installed = vec![];
+
+        let mut failure = false;
+        'install_loop: for (i, action) in self.install.iter().enumerate() {
+
+            info!("");
+            output::start_section(&format!("Starting {}action{} ({}/{})",
+                                           if action.is_optional() { "optional " } else { "" },
+                                           action.get_title().clone().map(|title| format!(" '{}'", &title)).unwrap_or_else(|| "".to_string()),
+                                           i + 1. self.install.len()));
+
+            match action.install(&shell, &self.path) {
+                Ok(install) => { installed.push(install) }
+                Err(e) => {
+
+                    if action.is_optional() {
+                        warn!("Failed to execute optional action: {}", e);
+                    } else {
+                        error!("Failed to execute mandatory action: {}", e);
+                        failure = true;
+                        break 'install_loop;
+                    }
+                }
+            }
+        }
+
+        if failure {
+            info!("");
+            error!("Failed to perform all mandatory actions, uninstalling completed ones...");
+
+            for action in installed {
+                if let Err(e) = action.uninstall(&shell, &self.path) {
+                    warn!("Failed to execute uninstall action: {}", e);
+                }
+            }
+
+            Err(Error::msg("at least one install action failed to execute"))
+        } else {
+            Ok(installed)
+        }
     }
 
     pub fn current_checksum(&self) -> String {

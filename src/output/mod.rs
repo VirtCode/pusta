@@ -56,6 +56,16 @@ pub fn start_section(message: &str) {
     CURRENT_INDENT.store(3, Relaxed);
 }
 
+pub fn start_shell(message: &str) {
+    println!("{} {}", "[]".bright_blue().bold(), message);
+    println!("{}\n\n", "----------------------------------------------------------------".bright_white().bold());
+}
+
+pub fn end_shell(success: bool, message: &str) {
+    println!("\n\n{}", "----------------------------------------------------------------".bright_white().bold());
+    println!("{} {}", if success { "[]".bright_green().bold() } else { "[]".bright_red().bold() }, message);
+}
+
 pub fn end_section() {
     CURRENT_INDENT.store(0, Relaxed);
 }

@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::manager::Manager;
 use clap::Parser;
 use crate::module::install::shell;
+use crate::module::install::shell::Shell;
 use crate::output::{logger};
 
 mod command;
@@ -22,8 +23,7 @@ fn main() {
     let command: Command = Command::parse();
     let mut config = Config::read();
 
-
-    logger::enable_logging(config.console.log_files, config.console.verbose || command.verbose);
+    logger::enable_logging(config.log.log_files, config.log.verbose || command.verbose);
 
     let mut manager = Manager::load(&config);
 
@@ -35,7 +35,9 @@ fn main() {
             match action {
                 ModuleCommand::Install { module } => {
 
-                    manager.install_module(&module).unwrap();
+                    let shell = Shell::new(&config);
+
+                    manager.install_module(&module, &shell).unwrap();
 
                 }
                 ModuleCommand::Remove { module } => {}

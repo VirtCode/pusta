@@ -1,9 +1,12 @@
+use std::fmt::format;
 use std::path::PathBuf;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use crate::config::Config;
 use crate::manager::cache::Cache;
 use crate::manager::registry::Registry;
 use crate::module::install::shell::Shell;
+use crate::module::uninstall;
+use crate::output::prompt_yn;
 
 mod registry;
 mod cache;
@@ -60,11 +63,20 @@ impl Manager {
         let module = self.registry.get(qualifier);
         
         if let Some(module) = module {
+            if let Some(installed) = self.cache.get_module(&module.unique_qualifier()) {
+                error!("{} module is already installed, try removing it first", if installed.checksum == module.current_checksum() { "This" } else { "Another version of this" });
+                return Ok(false)
+            }
+
+            if !prompt_yn(&format!("Do you want to install the module '{}'?", &module.unique_qualifier()), true) {
+                return Ok(false);
+            }
+
             info!("Installing module {}...", module.unique_qualifier());
 
             match module.install(shell) {
                 Ok(actions) => {
-                    self.cache.installed_module(module, actions)?;
+                    self.cache.add_module(module, actions)?;
 
                     info!("");
                     info!("Successfully installed module {}.", module.unique_qualifier());
@@ -84,6 +96,34 @@ impl Manager {
         }
     }
 
+    pub fn uninstall_module(&mut self, qualifier: &str, shell: &Shell) -> anyhow::Result<bool>{
+        info!("Resolving '{}' in installed modules", qualifier);
+        if let Some((module, actions, path)) = self.cache.data_module(qualifier)? {
 
+            if !prompt_yn(&format!("Do you want to uninstall the module '{}'?", &module.qualifier), true) {
+                return Ok(false);
+            }
+            info!("Removing module {}...", module.qualifier);
+
+            match uninstall(actions, &path, shell) {
+                Ok(_) => {
+                    info!("");
+                    info!("Successfully removed module {} from system.", module.qualifier);
+                }
+                Err(e) => {
+                    info!("");
+                    warn!("Could not completely remove module {} from system.", module.qualifier);
+                }
+            };
+
+            info!("Clearing module cache");
+            self.cache.remove_module(&module.qualifier.clone())?;
+
+            Ok(true)
+        } else {
+            error!("No module under this qualifier is currently installed");
+            Ok(false)
+        }
+    }
 }
 

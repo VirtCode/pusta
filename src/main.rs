@@ -4,6 +4,7 @@ use std::{env};
 use std::io::{BufReader};
 use std::os::unix::io::{RawFd};
 use std::path::PathBuf;
+use std::process::exit;
 use log::{error, info, LevelFilter, warn};
 use crate::command::{Command, ModuleCommand, RepositoryCommand, SubCommand};
 use crate::config::Config;
@@ -37,10 +38,27 @@ fn main() {
 
                     let shell = Shell::new(&config);
 
-                    manager.install_module(&module, &shell).unwrap();
+                    match manager.install_module(&module, &shell) {
+                        Ok(result) => { exit(if result { 1 } else { 0 }) }
+                        Err(e) => {
+                            error!("Failed to manipulate cache: {}", e);
+                            exit(1)
+                        }
+                    };
 
                 }
-                ModuleCommand::Remove { module } => {}
+                ModuleCommand::Remove { module } => {
+
+                    let shell = Shell::new(&config);
+                    match manager.uninstall_module(&module, &shell) {
+                        Ok(result) => { exit(if result { 1 } else { 0 }) }
+                        Err(e) => {
+                            error!("Failed to manipulate cache: {}", e);
+                            exit(1)
+                        }
+                    };
+
+                }
                 ModuleCommand::Update { modules } => {}
             }
 

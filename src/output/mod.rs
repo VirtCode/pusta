@@ -11,7 +11,7 @@ use std::thread;
 use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
 use colored::Colorize;
-use log::{Level, Log, Metadata, Record};
+use log::{info, Level, Log, Metadata, Record};
 use log::LevelFilter::Debug;
 
 pub static CURRENT_INDENT: AtomicUsize = AtomicUsize::new(0);
@@ -57,15 +57,16 @@ pub fn start_section(message: &str) {
 }
 
 pub fn start_shell(message: &str) {
-    println!("{} {}", "[]".bright_blue().bold(), message);
-    println!("{}\n\n", "----------------------------------------------------------------".bright_white().bold());
+    info!("{}", message);
+    println!("{}", "╭──╯".dimmed());
 }
 
 pub fn end_shell(success: bool, message: &str) {
-    println!("\n\n{}", "----------------------------------------------------------------".bright_white().bold());
-    println!("{} {}", if success { "[]".bright_green().bold() } else { "[]".bright_red().bold() }, message);
+    println!("{}", "╰──╮".dimmed());
+    info!("{}", message);
 }
 
-pub fn end_section() {
+pub fn end_section(success: bool, message: &str) {
     CURRENT_INDENT.store(0, Relaxed);
+    println!("{} {}", if success { "::".bright_green().bold() } else { "::".bright_red().bold() }, message);
 }

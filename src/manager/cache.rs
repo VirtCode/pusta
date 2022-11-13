@@ -1,7 +1,7 @@
 use std::fs;
 use std::fs::File;
 use std::io::{Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, };
 use anyhow::Context;
 use serde_with::{serde_as, TimestampMilliSeconds};
@@ -33,12 +33,23 @@ pub struct CacheRepository {
 #[serde_as]
 #[derive(Deserialize, Serialize)]
 pub struct CacheModule {
-    qualifier: String,
-    checksum: String,
+    pub qualifier: String,
+    pub checksum: String,
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     install_time: SystemTime,
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     update_time: SystemTime
+}
+
+impl CacheModule {
+    pub fn qualifies(&self, qualifier: &str) -> bool {
+        if self.qualifier == qualifier { true }
+        else {
+            let result: Vec<&str> = self.qualifier.split('/').collect();
+
+            result.len() == 2 && result.get(1).unwrap() == &qualifier
+        }
+    }
 }
 
 impl Cache {
@@ -78,7 +89,7 @@ impl Cache {
         serde_json::to_writer(&f, self).with_context(|| format!("Couldn't write cache installed file to '{}'", path.to_string_lossy()))
     }
 
-    pub fn installed_module(&mut self, m: &Module, actions: Vec<InstalledAction>) -> anyhow::Result<()> {
+    pub fn add_module(&mut self, m: &Module, actions: Vec<InstalledAction>) -> anyhow::Result<()> {
         let checksum = m.current_checksum();
 
         debug!("Saving installed actions");
@@ -118,6 +129,49 @@ impl Cache {
         Ok(())
     }
 
+    pub fn get_module(&self, qualifier: &str) -> Option<&CacheModule> {
+        self.modules.iter().find(|m| m.qualifies(qualifier))
+    }
+
+    pub fn data_module(&self, qualifier: &str) -> anyhow::Result<Option<(&CacheModule, Vec<InstalledAction>, PathBuf)>> {
+        let module = self.get_module(qualifier);
+        if let Some(module) = module {
+
+            let mut path = PathBuf::from(shellexpand::tilde(CACHE_LOCATION).to_string());
+            path.push(&module.checksum);
+
+            let mut actions_path = path.clone();
+            actions_path.push("actions.json");
+
+            debug!("Reading actions file for module {}", &module.qualifier);
+            let file = File::open(actions_path).context("Failed to open actions file for module")?;
+            let actions: Vec<InstalledAction> = serde_json::from_reader(file).context("Failed to read from actions file of module")?;
+
+            Ok(Some((module, actions, path)))
+        } else { Ok(None) }
+    }
+
+    pub fn remove_module(&mut self, qualifier: &str) -> anyhow::Result<bool> {
+        let module = self.get_module(qualifier);
+
+        if let Some(module) = module {
+
+            debug!("Deleting version cache of module");
+            let mut path = PathBuf::from(shellexpand::tilde(CACHE_LOCATION).to_string());
+            path.push(&module.checksum.clone());
+            fs::remove_dir_all(path).context("Failed to remove cache directory of module")?;
+
+            // Create new checksum instance, required to not use immutable borrow anymore
+            let checksum = module.checksum.clone();
+
+            debug!("Removing module from installed cache");
+            self.modules.retain(|m| m.checksum != checksum);
+            self.write()?;
+
+            Ok(true)
+        } else { Ok(false) }
+    }
+
     pub fn add_repo(&mut self, r: &Repository) -> anyhow::Result<()> {
         self.repos.push(CacheRepository {
             path: r.location.clone(),
@@ -129,7 +183,7 @@ impl Cache {
     }
 
     pub fn remove_repo(&mut self, alias: &str) -> anyhow::Result<bool> {
-        let repo = self.repos.iter().find(|r| &r.alias == alias);
+        let repo = self.repos.iter().find(|r| r.alias == alias);
 
         if let Some(repo) = repo {
             let alias = repo.alias.clone();

@@ -65,7 +65,9 @@ pub enum PreviewStrategy {
     #[serde(rename="never", alias="never", alias="Never")]
     Never,
     #[serde(rename="ask", alias="ask", alias="Ask")]
-    Ask
+    Ask,
+    #[serde(rename="ask-root", alias="ask-root", alias="Ask-Root")]
+    AskRoot
 }
 
 #[derive(Deserialize, Serialize, Clone)]

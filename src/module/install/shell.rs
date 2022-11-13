@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread::sleep;
 use std::time::Duration;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use crate::config::{Config, ConfigSecurity, ConfigShell, ConfirmStrategy, PreviewStrategy};
 use crate::output;
 use crate::output::loading::Loading;
@@ -83,7 +83,7 @@ impl Shell {
             ConfirmStrategy::Root => { root }
         };
 
-        let run = !confirm || prompt_yn(&format!("Run the script {}?", name), true);
+        let run = !confirm || prompt_yn(&format!("Run the script {}{}?", name, if root {" as root"} else {""}), true);
 
         if run {
             let task_text = if task {
@@ -103,33 +103,40 @@ impl Shell {
             PreviewStrategy::Root => { root }
             PreviewStrategy::Never => { false }
             PreviewStrategy::Ask => {
-                prompt_yn(&format!("Preview the next script {}?", name), false)
+                prompt_yn(&format!("Preview the next script {}{}?", name, if root {", which is to be run as root"} else {""}), false)
+            }
+            PreviewStrategy::AskRoot => {
+                root && prompt_yn(&format!("Preview the next script {}, which is to be run as root?", name), false)
             }
         };
 
-        if preview && !self.run(false, &self.shell_config.file_previewer.replace(FILE_PREVIEW_KEY, &file), None, true).unwrap_or(false) {
-            error!("Failed to preview file '{}'", file);
+        if preview {
+            info!("Opening preview for file at {}", file);
+
+            if !self.run(false, &self.shell_config.file_previewer.replace(FILE_PREVIEW_KEY, file), None, true).unwrap_or(false) {
+                error!("Failed to preview file '{}'", file);
+            }
         }
     }
 
     pub fn install_package(&self, name: &str) -> anyhow::Result<bool> {
-        if self.security_config.confirm_packages && !prompt_yn(&format!("Install the package '{}' over the system package manager?", name), true) {
+        if self.security_config.confirm_packages && !prompt_yn(&format!("Install the package(s) '{}' over the system package manager?", name.replace(' ', "', '")), true) {
             return Ok(false)
         }
 
         let command = self.shell_config.package_manager.install.replace(PACKAGE_COMMAND_KEY, name);
-        let task = Some(((format!("Installing system package '{}'...", name)), (format!("Successfully installed system package '{}'", name)), (format!("Failed to install system package '{}'", name))));
+        let task = Some(((format!("Installing system package(s) '{}'...", name.replace(' ', "', '"))), (format!("Successfully installed system package(s) '{}'", name.replace(' ', "', '"))), (format!("Failed to install system package(s) '{}'", name.replace(' ', "', '")))));
 
         self.run(self.shell_config.package_manager.root, &command, task, true)
     }
 
     pub fn remove_package(&self, name: &str) -> anyhow::Result<bool> {
-        if self.security_config.confirm_packages && !prompt_yn(&format!("Remove the package '{}' over the system package manager?", name), true) {
+        if self.security_config.confirm_packages && !prompt_yn(&format!("Remove the package(s) '{}' over the system package manager?", name.replace(' ', "', '")), true) {
             return Ok(false)
         }
 
         let command = self.shell_config.package_manager.remove.replace(PACKAGE_COMMAND_KEY, name);
-        let task = Some(((format!("Removing system package '{}'...", name)), (format!("Successfully removed system package '{}'", name)), (format!("Failed to remove system package '{}'", name))));
+        let task = Some(((format!("Removing system package(s) '{}'...", name.replace(' ', "', '"))), (format!("Successfully removed system package(s) '{}'", name.replace(' ', "', '"))), (format!("Failed to remove system package(s) '{}'", name.replace(' ', "', '")))));
 
         self.run(self.shell_config.package_manager.root, &command, task, true)
     }
@@ -141,7 +148,7 @@ impl Shell {
             ConfirmStrategy::Root => { root }
         };
 
-        let run = !confirm || prompt_yn(&format!("Copy the file {} to {}?", name, sink.to_string_lossy()), true);
+        let run = !confirm || prompt_yn(&format!("Copy the file {} to {}{}?", name, sink.to_string_lossy(), if root {" as root"} else {""}), true);
 
         if run { self.run(root, &format!("cp {} {}", source.to_string_lossy(), sink.to_string_lossy()), None, false) }
         else { Ok(false) }
@@ -154,7 +161,7 @@ impl Shell {
             ConfirmStrategy::Root => { root }
         };
 
-        let run = !confirm || prompt_yn(&format!("Symlink the file {} to {}?", name, sink.to_string_lossy()), true);
+        let run = !confirm || prompt_yn(&format!("Symlink the file {} to {}{}?", name, sink.to_string_lossy(), if root {" as root"} else {""}), true);
 
         if run { self.run(root, &format!("ln -s {} {}", source.to_string_lossy(), sink.to_string_lossy()), None, false) }
         else { Ok(false) }
@@ -167,7 +174,7 @@ impl Shell {
             ConfirmStrategy::Root => { root }
         };
 
-        let run = !confirm || prompt_yn(&format!("Remove the installed file at {}?", target.to_string_lossy()), true);
+        let run = !confirm || prompt_yn(&format!("Remove the installed file at {}{}?", target.to_string_lossy(), if root {" as root"} else {""}), true);
 
         if run { self.run(root, &format!("rm {}", target.to_string_lossy()), None, false) }
         else { Ok(false) }

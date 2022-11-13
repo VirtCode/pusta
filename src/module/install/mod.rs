@@ -1,7 +1,8 @@
 pub mod shell;
 
+use std::fs;
 use std::path::{Path, PathBuf};
-use anyhow::Error;
+use anyhow::{Context, Error};
 use log::info;
 use serde::{Deserialize, Serialize};
 use crate::module::install::InstalledAction::Empty;
@@ -42,21 +43,34 @@ impl InstallAction {
     pub fn install(&self, shell: &Shell, origin: &Path) -> anyhow::Result<InstalledAction> {
 
         match self {
-            InstallAction::Package { names, .. } => {
+            InstallAction::Package { names, title, .. } => {
+                info!("Trying to install the packages '{}' over the shell", names.replace(" ", "', '"));
 
                 let result = shell.install_package(names)?;
-                if !result { return Err(Error::msg("package manager failed or the install was canceled by user")) }
+                if !result { return Err(Error::msg("Package manager failed or the install was canceled by user")) }
 
-                Ok(InstalledAction::Package { installed: names.clone() })
+                info!("Successfully installed all required packages for this action");
+
+                Ok(InstalledAction::Package { installed: names.clone(), title: title.clone() })
             }
-            InstallAction::File { file, target, root, link, .. } => {
+            InstallAction::File { file, target, root, link, title, .. } => {
+                info!("{} the file {} to its foreseen location", if link.unwrap_or(false) { "Symlinking" } else { "Copying" }, file);
 
                 let mut source = origin.to_path_buf();
                 source.push(file);
-                source = source.canonicalize()?;
+                source = source.canonicalize().context("Failed to canonicalize path of source file")?;
 
-                let mut sink = PathBuf::from(shellexpand::tilde(target).as_ref());
-                sink = sink.canonicalize()?;
+                let sink = PathBuf::from(shellexpand::tilde(target).as_ref());
+                if let Some(parent) = sink.parent() {
+                    if !parent.exists() {
+                        info!("Creating parent directory for file to be placed in if not existent");
+                        fs::create_dir_all(parent).context("Failed to create parent directories for sink file")?;
+                    } else if !parent.is_dir() {
+                        return Err(Error::msg("Target parent directory is not a directory"))
+                    }
+                }
+
+                info!("Required paths evaluated, executing the action over the shell");
 
                 let result = if link.unwrap_or(false) {
                     shell.create_symlink(file, &source, &sink, root.unwrap_or(false))?
@@ -64,11 +78,13 @@ impl InstallAction {
                     shell.copy_file(file, &source, &sink, root.unwrap_or(false))?
                 };
 
-                if !result { return Err(Error::msg("file action canceled by user")) }
+                if !result { return Err(Error::msg("Symlink or copy was cancelled by user or failed otherwise")) }
 
-                Ok(InstalledAction::File {root: root.unwrap_or(true), location: sink})
+                info!("Successfully placed that file at its foreseen location");
+
+                Ok(InstalledAction::File {root: root.unwrap_or(false), location: sink, title: title.clone()})
             }
-            InstallAction::Script { install, uninstall, complete_reinstall, root, important_output, .. } => {
+            InstallAction::Script { install, uninstall, complete_reinstall, root, important_output, title, .. } => {
 
                 let mut path = origin.to_path_buf();
                 path.push(install);
@@ -78,7 +94,7 @@ impl InstallAction {
                 if !result { return Err(Error::msg("script failed to run, see output")) }
 
                 if let Some(s) = uninstall {
-                    Ok(InstalledAction::Script {uninstall: s.clone(), root: root.unwrap_or(false)})
+                    Ok(InstalledAction::Script {uninstall: s.clone(), root: root.unwrap_or(false), title: title.clone()})
                 } else { Ok(Empty) }
             }
         }
@@ -104,13 +120,16 @@ impl InstallAction {
 #[derive(Deserialize, Serialize)]
 pub enum InstalledAction {
     Package {
+        title: Option<String>,
         installed: String
     },
     File {
+        title: Option<String>,
         location: PathBuf,
         root: bool
     },
     Script {
+        title: Option<String>,
         uninstall: String,
         root: bool
     },
@@ -120,31 +139,43 @@ pub enum InstalledAction {
 impl InstalledAction {
     pub fn uninstall(&self, shell: &Shell, cache: &Path) -> anyhow::Result<()>{
         match self {
-            InstalledAction::Package { installed } => {
+            InstalledAction::Package { installed, .. } => {
 
+                info!("Removing previously installed package(s) '{}' over the shell", installed.replace(" ", "', '"));
                 let result = shell.remove_package(installed)?;
-                if !result { return Err(Error::msg("package manager failed or the removal was canceled by user")) }
+                if !result { return Err(Error::msg("Package manager failed or the removal was canceled by user")) }
 
             }
-            InstalledAction::File { location, root } => {
+            InstalledAction::File { location, root, .. } => {
 
-                let result = shell.remove_file(&location, *root)?;
-                if !result { return Err(Error::msg("file removal probably canceled by user")) }
+                info!("Removing installed file from {}{}", location.to_string_lossy(), if *root { ", using root" } else { "" });
+                let result = shell.remove_file(location, *root)?;
+                if !result { return Err(Error::msg("File removal probably canceled by user")) }
 
             }
-            InstalledAction::Script { uninstall, root } => {
+            InstalledAction::Script { uninstall, root, .. } => {
 
+                info!("Running available uninstaller script{}", if *root { "as root" } else { "" });
                 let mut path = cache.to_path_buf();
                 path.push(uninstall);
 
                 let result = shell.execute_script(&path.to_string_lossy(), *root, "uninstaller", false)?;
-                if !result { return Err(Error::msg("uninstaller script failed to execute properly")) }
+                if !result { return Err(Error::msg("Uninstaller script failed to execute properly")) }
 
             }
             Empty => {}
         }
 
         Ok(())
+    }
+
+    pub fn get_title(&self) -> &Option<String> {
+        match self {
+            InstalledAction::Package { title, .. } => { title }
+            InstalledAction::File { title, .. } => { title }
+            InstalledAction::Script { title, .. } => { title }
+            _ => { &None }
+        }
     }
 }
 

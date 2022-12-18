@@ -119,24 +119,24 @@ impl Shell {
         }
     }
 
-    pub fn install_package(&self, name: &str) -> anyhow::Result<bool> {
-        if self.security_config.confirm_packages && !prompt_yn(&format!("Install the package(s) '{}' over the system package manager?", name.replace(' ', "', '")), true) {
+    pub fn install_package(&self, name: Vec<String>) -> anyhow::Result<bool> {
+        if self.security_config.confirm_packages && !prompt_yn(&format!("Install the package(s) '{}' over the system package manager?", name.join("', '")), true) {
             return Ok(false)
         }
 
-        let command = self.shell_config.package_manager.install.replace(PACKAGE_COMMAND_KEY, name);
-        let task = Some(((format!("Installing system package(s) '{}'...", name.replace(' ', "', '"))), (format!("Successfully installed system package(s) '{}'", name.replace(' ', "', '"))), (format!("Failed to install system package(s) '{}'", name.replace(' ', "', '")))));
+        let command = self.shell_config.package_manager.install.replace(PACKAGE_COMMAND_KEY, &name.join(" "));
+        let task = Some(((format!("Installing system package(s) '{}'...", name.join("', '"))), (format!("Successfully installed system package(s) '{}'", name.join("', '"))), (format!("Failed to install system package(s) '{}'", name.join("', '")))));
 
         self.run(self.shell_config.package_manager.root, &command, task, true)
     }
 
-    pub fn remove_package(&self, name: &str) -> anyhow::Result<bool> {
-        if self.security_config.confirm_packages && !prompt_yn(&format!("Remove the package(s) '{}' over the system package manager?", name.replace(' ', "', '")), true) {
+    pub fn remove_package(&self, name: Vec<String>) -> anyhow::Result<bool> {
+        if self.security_config.confirm_packages && !prompt_yn(&format!("Remove the package(s) '{}' over the system package manager?", name.join("', '")), true) {
             return Ok(false)
         }
 
-        let command = self.shell_config.package_manager.remove.replace(PACKAGE_COMMAND_KEY, name);
-        let task = Some(((format!("Removing system package(s) '{}'...", name.replace(' ', "', '"))), (format!("Successfully removed system package(s) '{}'", name.replace(' ', "', '"))), (format!("Failed to remove system package(s) '{}'", name.replace(' ', "', '")))));
+        let command = self.shell_config.package_manager.remove.replace(PACKAGE_COMMAND_KEY, &name.join(" "));
+        let task = Some(((format!("Removing system package(s) '{}'...", name.join("', '"))), (format!("Successfully removed system package(s) '{}'", name.join("', '"))), (format!("Failed to remove system package(s) '{}'", name.join("', '")))));
 
         self.run(self.shell_config.package_manager.root, &command, task, true)
     }

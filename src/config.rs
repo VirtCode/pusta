@@ -121,7 +121,9 @@ impl Config {
         if let Ok(c) = {
             let path = PathBuf::from(shellexpand::tilde(CONFIG_FILE).to_string());
 
-            File::open(&path).map_err(anyhow::Error::new).and_then(|f| serde_yaml::from_reader(f).map_err(anyhow::Error::new))
+            File::open(&path).map_err(anyhow::Error::new).and_then(|f| serde_yaml::from_reader(f).map_err(anyhow::Error::new)).map_err(|e| {
+                eprintln!("Error occurred: {}", e)
+            })
         } {
             c
         } else {

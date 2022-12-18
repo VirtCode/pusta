@@ -1,4 +1,5 @@
 pub mod shell;
+pub(crate) mod neoshell;
 
 use std::fs;
 use std::path::{Path, PathBuf};

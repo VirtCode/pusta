@@ -19,6 +19,7 @@ mod module;
 mod manager;
 mod config;
 mod output;
+mod jobs;
 
 fn main() {
     let command: Command = Command::parse();

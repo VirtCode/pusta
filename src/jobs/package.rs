@@ -18,13 +18,12 @@ impl PackageJob {
 #[typetag::serde(name = "package")]
 impl Installable for PackageJob {
 
-    fn install(&self, env: &JobEnvironment, cache: &JobCacheWriter) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()> {
         let names = self.name_vec();
 
         info!("Trying to install the packages '{}' over the shell", names.join("', '"));
 
-        let result = env.shell.install(names)?;
-        if !result { return Err(Error::msg("Package manager failed or the install was canceled by user")) }
+        env.shell.install(names)?;
 
         info!("Successfully installed all required packages for this action");
         Ok(())
@@ -35,8 +34,7 @@ impl Installable for PackageJob {
 
         info!("Removing previously installed package(s) '{}' over the shell", names.join("', '"));
 
-        let result = env.shell.install(names)?;
-        if !result { return Err(Error::msg("Package manager failed or the removal was canceled by user")) }
+        env.shell.install(names)?;
 
         Ok(())
     }

@@ -22,7 +22,7 @@ pub struct JobEnvironment {
 #[typetag::serde(tag = "type")]
 pub trait Installable {
     /// Installs the procedure with a given environment
-    fn install(&self, env: &JobEnvironment, cache: &JobCacheWriter) -> anyhow::Result<()>;
+    fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()>;
     /// Uninstalls the given procedure with a given environment
     fn uninstall(&self, env: &JobEnvironment, cache: &JobCacheReader) -> anyhow::Result<()>;
 
@@ -55,7 +55,7 @@ impl Job {
     }
 
     /// Installs the job
-    pub fn install(&self, env: &JobEnvironment, cache: &JobCacheWriter) -> anyhow::Result<()> {
+    pub fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()> {
         self.job.install(env, cache)
     }
 

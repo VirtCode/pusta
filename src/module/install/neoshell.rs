@@ -34,12 +34,12 @@ impl Shell {
         }
 
         if !run(&command, output)? {
-            Err(Error::msg(""))
-        }
+            Err(Error::msg("Shell command did not succeed"))
+        } else { Ok(()) }
     }
 
     /// Installs a package over the system package manager
-    pub fn install(&self, packages: Vec<String>) -> anyhow::Result<bool> {
+    pub fn install(&self, packages: Vec<String>) -> anyhow::Result<()> {
         let packages = packages.join(" ");
         let command = self.shell_config.package_manager.install.clone().replace(PACKAGE_COMMAND_KEY, &packages);
 
@@ -47,7 +47,7 @@ impl Shell {
     }
 
     /// Uninstalls a package over the system package manager
-    pub fn uninstall(&self, packages: Vec<String>) -> anyhow::Result<bool> {
+    pub fn uninstall(&self, packages: Vec<String>) -> anyhow::Result<()> {
         let packages = packages.join(" ");
         let command = self.shell_config.package_manager.remove.clone().replace(PACKAGE_COMMAND_KEY, &packages);
 
@@ -55,28 +55,28 @@ impl Shell {
     }
 
     /// Makes all directories for the given path
-    pub fn make_dir(&self, path: &Path, root: bool) -> anyhow::Result<bool> {
+    pub fn make_dir(&self, path: &Path, root: bool) -> anyhow::Result<()> {
         let command = format!("mkdir -p {}", path.canonicalize()?.to_string_lossy());
 
         self.run(&command, root, false)
     }
 
     /// Removes a file or directory at the given path
-    pub fn remove(&self, path: &Path, root: bool) -> anyhow::Result<bool> {
+    pub fn remove(&self, path: &Path, root: bool) -> anyhow::Result<()> {
         let command = format!("rm -r {}", path.canonicalize()?.to_string_lossy());
 
         self.run(&command, root, false)
     }
 
     /// Copies a file or directory to a specific place
-    pub fn copy(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<bool> {
+    pub fn copy(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
         let command = format!("cp -r {} {}", source.canonicalize()?.to_string_lossy(), destination.canonicalize()?.to_string_lossy());
 
         self.run(&command, root, false)
     }
 
     /// Creates a symlink for a file or directory
-    pub fn link(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<bool> {
+    pub fn link(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
         let command = format!("cp -s {} {}", source.canonicalize()?.to_string_lossy(), destination.canonicalize()?.to_string_lossy());
 
         self.run(&command, root, false)

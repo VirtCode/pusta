@@ -81,6 +81,13 @@ impl Shell {
 
         self.run(&command, root, false)
     }
+
+    /// Makes a given file executable
+    pub fn make_executable(&self, path: &Path, root: bool) -> anyhow::Result<()> {
+        let command = format!("chmod +x {}", path.canonicalize()?.to_string_lossy());
+        
+        self.run(&command, root, false)
+    }
 }
 
 const FALLBACK_SHELL: &str = "/bin/sh";

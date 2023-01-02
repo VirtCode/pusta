@@ -1,6 +1,6 @@
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
-use crate::jobs::{Installable, JobCacheReader, JobCacheWriter, JobEnvironment};
+use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
 #[derive(Serialize, Deserialize)]
 pub struct ScriptJob {
@@ -14,7 +14,7 @@ pub struct ScriptJob {
 #[typetag::serde(name = "script")]
 impl Installable for ScriptJob {
 
-    fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
 
         // Create path to script
         let mut path = env.module_path.clone();
@@ -28,16 +28,19 @@ impl Installable for ScriptJob {
 
         // Cache uninstall file
         if let Some(uninstall) = &self.uninstall {
-            cache.cache_own(env, uninstall, "uninstall");
+            writer.cache.cache_own(env, uninstall, "uninstall");
         }
+
+        // Mark installed file as resource
+        writer.resources.mark(self.install.clone());
 
         Ok(())
     }
 
-    fn uninstall(&self, env: &JobEnvironment, cache: &JobCacheReader) -> anyhow::Result<()> {
+    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
 
         // Run uninstaller if present
-        if let Some(uninstall) = cache.retrieve("uninstall") {
+        if let Some(uninstall) = reader.cache.retrieve("uninstall") {
             env.shell.run(&uninstall.canonicalize()?.to_string_lossy(), self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Failed to run uninstaller script")?;
         }
 

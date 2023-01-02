@@ -43,7 +43,7 @@ impl JobCacheWriter {
     }
 
     /// Marks a file that is anywhere as to be cached under a given alias.
-    /// Since pusta cannot (and actively does not) ensure that that file remains untouched until the cache is ran, the file ist first copied to a temporary folder
+    /// Since such files are likely to be modified during an installation, they will first be copied to a temporary folder
     pub fn cache_foreign(&mut self, path: &Path, alias: &str) {
         if !path.exists() {
             warn!("Could not cache foreign file at {} since it does not exist", path.to_string_lossy());

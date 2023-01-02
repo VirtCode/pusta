@@ -1,5 +1,5 @@
 use crate::jobs::cache::{JobCacheReader, JobCacheWriter};
-use crate::jobs::JobEnvironment;
+use crate::jobs::{InstallReader, InstallWriter, JobEnvironment};
 
 mod package;
 mod file;
@@ -10,9 +10,9 @@ mod command;
 #[typetag::serde(tag = "type")]
 pub trait Installable {
     /// Installs the procedure with a given environment
-    fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()>;
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()>;
     /// Uninstalls the given procedure with a given environment
-    fn uninstall(&self, env: &JobEnvironment, cache: &JobCacheReader) -> anyhow::Result<()>;
+    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()>;
 
     /// Invents a completely new title if none is provided
     fn construct_title(&self) -> String;

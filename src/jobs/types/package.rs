@@ -1,7 +1,7 @@
 use anyhow::Error;
 use log::info;
 use serde::{Deserialize, Serialize};
-use crate::jobs::{Installable, JobCacheReader, JobCacheWriter, JobEnvironment};
+use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
 /// This job installs a package from the system
 #[derive(Serialize, Deserialize)]
@@ -18,7 +18,7 @@ impl PackageJob {
 #[typetag::serde(name = "package")]
 impl Installable for PackageJob {
 
-    fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
         let names = self.name_vec();
 
         info!("Trying to install the packages '{}' over the shell", names.join("', '"));
@@ -29,7 +29,7 @@ impl Installable for PackageJob {
         Ok(())
     }
 
-    fn uninstall(&self, env: &JobEnvironment, cache: &JobCacheReader) -> anyhow::Result<()> {
+    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
         let names = self.name_vec();
 
         info!("Removing previously installed package(s) '{}' over the shell", names.join("', '"));

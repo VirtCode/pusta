@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Error};
 use log::info;
 use serde::{Deserialize, Serialize};
-use crate::jobs::{Installable, JobCacheReader, JobCacheWriter, JobEnvironment};
+use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
 #[derive(Serialize, Deserialize)]
 pub struct FileJob {
@@ -18,7 +18,7 @@ pub struct FileJob {
 #[typetag::serde(name = "file")]
 impl Installable for FileJob {
 
-    fn install(&self, env: &JobEnvironment, cache: &mut JobCacheWriter) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
         let root = self.link.unwrap_or(false);
 
         // Get source file
@@ -31,7 +31,7 @@ impl Installable for FileJob {
 
         if target.exists() {
             // There is already a file at the target location
-            cache.cache_foreign(&target, "original");
+            writer.cache.cache_foreign(&target, "original");
             env.shell.remove(&target, root).context("Failed to remove original file to replace")?;
 
         } else if let Some(path) = target.parent() {
@@ -53,10 +53,13 @@ impl Installable for FileJob {
             env.shell.copy(&file, &target, root).context("Failed to copy file")?;
         }
 
+        // Mark used file as resource
+        writer.resources.mark(self.file.clone());
+
         Ok(())
     }
 
-    fn uninstall(&self, env: &JobEnvironment, cache: &JobCacheReader) -> anyhow::Result<()> {
+    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
         let mut target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
 
         if !target.exists() {
@@ -67,7 +70,7 @@ impl Installable for FileJob {
         // Remove managed file
         env.shell.remove(&target, self.root.unwrap_or(false)).context("Failed to remove installed file")?;
 
-        if let Some(original) = cache.retrieve("original") {
+        if let Some(original) = reader.cache.retrieve("original") {
             // Restore original file
             env.shell.copy(&original, &target, self.root.unwrap_or(false)).context("Failed to restore original file")?;
         }

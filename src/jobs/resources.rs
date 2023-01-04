@@ -3,6 +3,7 @@ use std::path::Path;
 use anyhow::Context;
 use chksum::Chksum;
 use chksum::hash::HashAlgorithm;
+use serde::{Deserialize, Serialize};
 use log::warn;
 
 /// This struct is used for a job to mark out which resources it depends on
@@ -51,6 +52,7 @@ impl JobResources {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ResourceFile {
     file: String,
     checksum: String

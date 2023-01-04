@@ -7,6 +7,11 @@ use crate::module::repository::Repository;
 
 pub const MAIN: &str = "main";
 
+// TODO: Make new Registry, Loading all modules into one Vec (ofc, doing duplicate check before), also loading installed modules
+// Add methods to extract one module owning, so it can be installed
+// Also add providing conflict detection
+// Only use repositories for loading modules, not as a struct inbetween
+// Rewrite cache too
 pub struct Registry {
     strict: bool,
 

@@ -5,7 +5,6 @@ use crate::config::Config;
 use crate::manager::cache::Cache;
 use crate::manager::registry::Registry;
 use crate::module::install::shell::Shell;
-use crate::module::uninstall;
 use crate::output::prompt_yn;
 
 mod registry;

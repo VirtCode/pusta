@@ -270,6 +270,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9b0705efd4599c15a38151f4721f7bc388306f61084d3bfd50bd07fbca5cb60"
+
+[[package]]
 name = "erased-serde"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -512,6 +518,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "dyn-clone",
  "log",
  "serde",
  "serde_json",

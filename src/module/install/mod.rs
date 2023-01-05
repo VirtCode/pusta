@@ -14,15 +14,15 @@ use crate::module::install::neoshell::Shell;
 use crate::module::Module;
 use crate::output;
 
-#[derive(Serialize, Deserialize)]
-struct InstalledModule {
-    module: Module,
-    data: Vec<JobData>,
-    installed: SystemTime,
-    updated: SystemTime
+#[derive(Serialize, Deserialize, Clone)]
+pub struct InstalledModule {
+    pub module: Module,
+    pub data: Vec<JobData>,
+    pub installed: SystemTime,
+    pub updated: SystemTime
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 struct JobData {
     success: bool,
     resources: Vec<ResourceFile>

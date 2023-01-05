@@ -6,7 +6,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct FileJob {
     file: String,
     location: String,

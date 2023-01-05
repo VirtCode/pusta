@@ -1,7 +1,7 @@
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ModuleQualifier {
     repository: String,
     /// Name of the directory
@@ -21,6 +21,11 @@ impl ModuleQualifier {
             alias,
             provide
         }
+    }
+
+    /// Returns the repository of the qualifier
+    pub fn repository(&self) -> &String {
+        &self.repository
     }
 
     /// Returns whether the module provides the named qualifier

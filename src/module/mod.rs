@@ -38,7 +38,7 @@ pub struct ModuleConfig {
     // actions, variables, lists
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Module {
     pub path: PathBuf,
     pub qualifier: ModuleQualifier,

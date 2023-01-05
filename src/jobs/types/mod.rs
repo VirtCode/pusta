@@ -1,3 +1,4 @@
+use dyn_clone::{clone_trait_object, DynClone};
 use crate::jobs::cache::{JobCacheReader, JobCacheWriter};
 use crate::jobs::{InstallReader, InstallWriter, JobEnvironment};
 
@@ -6,9 +7,12 @@ mod file;
 mod script;
 mod command;
 
+// Has to be cloned during the install process creating a new installed module
+clone_trait_object!(Installable);
+
 /// This trait will specify a job procedure type used by a Job
 #[typetag::serde(tag = "type")]
-pub trait Installable {
+pub trait Installable: DynClone {
     /// Installs the procedure with a given environment
     fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()>;
     /// Uninstalls the given procedure with a given environment

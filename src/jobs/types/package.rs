@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
 /// This job installs a package from the system
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PackageJob {
     names: String
 }

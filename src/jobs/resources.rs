@@ -32,7 +32,7 @@ impl JobResources {
             path.canonicalize().context("Failed to canonicalize resource path")?;
 
             // Calculate checksum
-            let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);;
+            let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);
 
             Ok(ResourceFile {
                 file: s.clone(),
@@ -52,7 +52,7 @@ impl JobResources {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceFile {
     file: String,
     checksum: String

@@ -20,6 +20,14 @@ mod manager;
 mod config;
 mod output;
 mod jobs;
+mod registry;
+
+pub const FILE_REPOSITORY: &str = "pusta.yml";
+pub const FILE_MODULE: &str = "module.yml";
+
+pub const CACHE_MODULES: &str = "~/.config/pusta/cache/modules.json";
+pub const CACHE_REPOSITORIES: &str = "~/.config/pusta/cache/repositories.json";
+pub const CACHE_DATA: &str = "~/.config/pusta/cache/data/";
 
 fn main() {
     let command: Command = Command::parse();

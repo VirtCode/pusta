@@ -33,7 +33,7 @@ pub struct InstallReader {
 }
 
 /// This struct represents a job which can be specified to be installed for a module
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Job {
     /// Title of the job, if none, one will be generated
     title: Option<String>,

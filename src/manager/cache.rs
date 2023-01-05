@@ -8,7 +8,6 @@ use serde_with::{serde_as, TimestampMilliSeconds};
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_with::formats::Flexible;
-use crate::module::install::InstalledAction;
 use crate::module::Module;
 use crate::module::repository::Repository;
 

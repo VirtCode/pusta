@@ -17,7 +17,7 @@ use crate::output::end_section;
 
 pub mod repository;
 pub mod install;
-mod qualifier;
+pub mod qualifier;
 
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";

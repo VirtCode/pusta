@@ -48,7 +48,7 @@ impl Job {
 
     /// Returns the title of the job
     pub fn title(&self) -> String {
-        self.title.unwrap_or_else(|| self.job.construct_title()).clone()
+        self.title.clone().unwrap_or_else(|| self.job.construct_title())
     }
 
     /// Returns whether the job is optional

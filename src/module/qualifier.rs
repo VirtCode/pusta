@@ -41,8 +41,8 @@ impl ModuleQualifier {
     }
 
     // Returns the full qualifier of that module
-    pub fn unique(&self) -> &String {
-        &format!("{}/{}", &self.repository, self.name())
+    pub fn unique(&self) -> String {
+        format!("{}/{}", &self.repository, self.name())
     }
 
     /// Returns qualifying name for module

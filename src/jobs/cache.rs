@@ -62,7 +62,7 @@ impl JobCacheWriter {
 
     /// Collects the marked files to a cache location
     pub fn end(&self, target: &Path) {
-        for (alias, path) in self.files {
+        for (alias, path) in &self.files {
             let mut location = target.to_owned();
             location.push(alias);
 

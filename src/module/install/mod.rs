@@ -23,7 +23,7 @@ pub struct InstalledModule {
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]
-struct JobData {
+pub struct JobData {
     success: bool,
     resources: Vec<ResourceFile>
 }

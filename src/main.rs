@@ -8,15 +8,14 @@ use std::process::exit;
 use log::{error, info, LevelFilter, warn};
 use crate::command::{Command, ModuleCommand, RepositoryCommand, SubCommand};
 use crate::config::Config;
-use crate::manager::Manager;
 use clap::Parser;
 use crate::module::install::shell;
 use crate::module::install::shell::Shell;
 use crate::output::{logger};
+use crate::registry::Registry;
 
 mod command;
 mod module;
-mod manager;
 mod config;
 mod output;
 mod jobs;
@@ -35,7 +34,7 @@ fn main() {
 
     logger::enable_logging(config.log.log_files, config.log.verbose || command.verbose);
 
-    let mut manager = Manager::load(&config);
+    let mut registry = Registry::new(&config);
 
     println!();
 
@@ -47,25 +46,27 @@ fn main() {
 
                     let shell = Shell::new(&config);
 
-                    match manager.install_module(&module, &shell) {
-                        Ok(result) => { exit(if result { 1 } else { 0 }) }
-                        Err(e) => {
-                            error!("Failed to manipulate cache: {}", e);
-                            exit(1)
-                        }
-                    };
+
+
+                    // match manager.install_module(&module, &shell) {
+                    //     Ok(result) => { exit(if result { 1 } else { 0 }) }
+                    //     Err(e) => {
+                    //         error!("Failed to manipulate cache: {}", e);
+                    //         exit(1)
+                    //     }
+                    // };
 
                 }
                 ModuleCommand::Remove { module } => {
 
                     let shell = Shell::new(&config);
-                    match manager.uninstall_module(&module, &shell) {
-                        Ok(result) => { exit(if result { 1 } else { 0 }) }
-                        Err(e) => {
-                            error!("Failed to manipulate cache: {}", e);
-                            exit(1)
-                        }
-                    };
+                    // match manager.uninstall_module(&module, &shell) {
+                    //     Ok(result) => { exit(if result { 1 } else { 0 }) }
+                    //     Err(e) => {
+                    //         error!("Failed to manipulate cache: {}", e);
+                    //         exit(1)
+                    //     }
+                    // };
 
                 }
                 ModuleCommand::Update { modules } => {}
@@ -76,22 +77,14 @@ fn main() {
             match action {
                 RepositoryCommand::Add { path,  alias }  => {
 
-                    // Add repository
-                    let dir = if let Some(path) = path {
-                        PathBuf::from(path)
-                    } else {
-                        env::current_dir().unwrap()
+                    let dir = path.map(PathBuf::from).unwrap_or_else(|| env::current_dir().unwrap());
 
-                    };
-
-                    manager.add_repository(&dir, alias.as_ref()).unwrap();
-
-
+                    registry.add(&dir, alias.as_deref()).unwrap();
                 }
                 RepositoryCommand::Remove { alias }  => {
 
                     // Remove repository
-                    manager.remove_repository(&alias).unwrap();
+                    registry.unadd(&alias);
 
                 }
                 RepositoryCommand::Main { alias } => {
@@ -111,4 +104,14 @@ fn main() {
         },
         _ => {}
     }
+
+}
+
+fn install_module(name: &str, registry: &Registry) {
+    let names = registry.query(name);
+
+    let name =
+        if names.len() == 1 { names.get(0).unwrap().clone() }
+        else { output::prompt_choice("Which package do you mean?", names., None) };
+
 }

@@ -35,6 +35,8 @@ fn main() {
     logger::enable_logging(config.log.log_files, config.log.verbose || command.verbose);
 
     let mut registry = Registry::new(&config);
+    registry.read_modules();
+    registry.read_repositories().unwrap();
 
     println!();
 
@@ -46,6 +48,7 @@ fn main() {
 
                     let shell = Shell::new(&config);
 
+                    install_module(&module, &registry);
 
 
                     // match manager.install_module(&module, &shell) {
@@ -112,6 +115,6 @@ fn install_module(name: &str, registry: &Registry) {
 
     let name =
         if names.len() == 1 { names.get(0).unwrap().clone() }
-        else { output::prompt_choice("Which package do you mean?", names., None) };
+        else { output::prompt_choice("Which package do you mean?", names.iter().collect(), None) };
 
 }

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::path::PathBuf;
-use anyhow::{Context, Error};
-use log::error;
+use anyhow::{Context, Error, format_err};
+use log::{error, warn};
 use crate::config::Config;
 use crate::FILE_MODULE;
 use crate::module::install::InstalledModule;
@@ -42,30 +42,48 @@ impl Registry {
         }
     }
 
-    pub fn read_modules(&mut self) -> anyhow::Result<()> {
-        self.installed = File::open(crate::CACHE_MODULES).context("Failed to read module cache file")
-            .and_then(|f| serde_json::from_reader(f).context("Failed to deserialize modules"))
-            .context("Failed to read installed modules from cache, it will have no knowledge of installed ones.")?;
+    pub fn read_modules(&mut self) {
+        let path = shellexpand::tilde(crate::CACHE_MODULES).to_string();
 
-        Ok(())
+        self.installed = File::open(path).map_err(|e| format_err!(e))
+            .and_then(|f| serde_json::from_reader(f).context("Failed to deserialize modules"))
+            .unwrap_or_else(|e|  {
+                warn!("Failed to read installed modules from cache ({}), installed will not be known of", e.to_string());
+                vec![]
+            });
     }
 
     pub fn read_repositories(&mut self) -> anyhow::Result<()> {
-        self.repositories = File::open(crate::CACHE_REPOSITORIES).context("Failed to read repository cache file")
+        let path = shellexpand::tilde(crate::CACHE_REPOSITORIES).to_string();
+
+        let repositories: Vec<Repository> = File::open(path).map_err(|e| format_err!(e))
             .and_then(|f| serde_json::from_reader(f).context("Failed to deserialize repositories"))
-            .context("Failed to read added repositories from cache, no repositories will be available")?;
+            .unwrap_or_else(|e|  {
+                warn!("Failed to read added repositories from cache ({}), no repositories will be available", e.to_string());
+                vec![]
+            });
+
+        for x in &repositories {
+            self.load_modules(x)?;
+        }
+
+        self.repositories = repositories;
 
         Ok(())
     }
 
     fn write_modules(&self) {
-        File::create(crate::CACHE_MODULES).context("Failed to open module cache file")
-            .and_then(|f| serde_json::to_writer(f, &self.installed).context("Failed to serialize modules"))
+        let path = shellexpand::tilde(crate::CACHE_MODULES).to_string();
+
+        File::create(path).map_err(|e| format_err!(e))
+            .and_then(|f| serde_json::to_writer(f, &self.installed).context("failed to serialize modules"))
             .unwrap_or_else(|e| error!("Failed to write module cache ({e}), actions will not be persisted!"));
     }
 
     fn write_repositories(&self) {
-        File::create(crate::CACHE_REPOSITORIES).context("Failed to open repository cache file")
+        let path = shellexpand::tilde(crate::CACHE_REPOSITORIES).to_string();
+
+        File::create(path).map_err(|e| format_err!(e))
             .and_then(|f| serde_json::to_writer(f, &self.repositories).context("Failed to serialize repositories"))
             .unwrap_or_else(|e| error!("Failed to write repository cache ({e}), actions will not be persisted!"));
     }
@@ -166,11 +184,16 @@ impl Registry {
                 // Has module.yml
                 if file.exists() {
 
-                    let module = Module::load(&entry, repo)?;
+                    match Module::load(&entry, repo) {
+                        Ok(module) => {
+                            if modules.iter().any(|m| m.qualifier.name() == module.qualifier.name()) { return Err(Error::msg(format!("Failed to load modules, name conflict found ('{}')", module.qualifier.name())))}
 
-                    if modules.iter().any(|m| m.qualifier.name() == module.qualifier.name()) { return Err(Error::msg(format!("Failed to load modules, name conflict found ('{}')", module.qualifier.name())))}
-
-                    modules.push(module);
+                            modules.push(module);
+                        },
+                        Err(e) => {
+                            error!("Failed to load module (from '{}' at '{}'): {}", repo.name, entry.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default(), e.to_string());
+                        }
+                    }
                 }
             }
         }

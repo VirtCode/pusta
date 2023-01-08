@@ -2,7 +2,7 @@ use std::fmt::format;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use anyhow::{Context, Error};
+use anyhow::{anyhow, Context, Error};
 use chksum::Chksum;
 use chksum::prelude::HashAlgorithm;
 use colored::Colorize;
@@ -61,7 +61,8 @@ impl Module {
         // Load config file
         let mut config = location.to_owned();
         config.push(MODULE_CONFIG);
-        let config: ModuleConfig = serde_yaml::from_reader(File::open(&config).context("Failed to open config file, does it exist?")?).context("Failed to read config file, make sure every mandatory attribute is provided")?;
+        let config: ModuleConfig = serde_yaml::from_reader(File::open(&config).context("Failed to open config file, does it exist?")?)
+            .map_err(|f| anyhow!("Failed to read config file ({})", f.to_string()))?;
 
         // Calculate current checksum
         let checksum = fs::read_dir(location).context("Failed to read dir for checksum").and_then(|mut f| {

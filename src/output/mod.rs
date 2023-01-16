@@ -21,7 +21,7 @@ pub fn prompt_yn(question: &str, default: bool) -> bool {
     else { line.starts_with('y') } // Assume no for garbage input
 }
 
-pub fn prompt_choice(question: &str, choices: Vec<&String>, default: Option<usize>) -> String {
+pub fn prompt_choice(question: &str, choices: &Vec<String>, default: Option<usize>) -> usize {
     println!("{} {}", "??".bright_blue().bold(), question);
 
     for (i, choice) in choices.iter().enumerate() {
@@ -37,17 +37,17 @@ pub fn prompt_choice(question: &str, choices: Vec<&String>, default: Option<usiz
         let mut line = String::new();
         if stdin().read_line(&mut line).is_err() {
             error!("Failed to read from stdin");
-            return "".to_owned();
+            return 0;
         }
         
         // If default, use default
-        if default.is_some() && line.is_empty() { return (**choices.get(default.unwrap()).unwrap()).clone() }
+        if default.is_some() && line.is_empty() { return default.unwrap() }
         
         if let Ok(i) = usize::from_str(line.trim()) {
                       
             if i < 1 || i > choices.len() { error!("Please enter a number within range") }
             else {
-                return (**choices.get(i - 1).unwrap()).clone();
+                return i - 1;
             }
         } else {
             error!("Please enter a valid number");

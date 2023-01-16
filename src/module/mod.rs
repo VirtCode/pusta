@@ -44,10 +44,10 @@ pub struct Module {
     pub qualifier: ModuleQualifier,
     checksum: String,
 
-    name: String,
-    description: String,
-    author: Option<String>,
-    version: String,
+    pub name: String,
+    pub description: String,
+    pub author: Option<String>,
+    pub version: String,
 
     jobs: Vec<Job>
 

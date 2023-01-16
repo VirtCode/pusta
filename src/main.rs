@@ -5,7 +5,7 @@ use std::io::{BufReader};
 use std::os::unix::io::{RawFd};
 use std::path::PathBuf;
 use std::process::exit;
-use log::{error, info, LevelFilter, warn};
+use log::{debug, error, info, LevelFilter, warn};
 use crate::command::{Command, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use clap::Parser;
@@ -35,8 +35,7 @@ fn main() {
 
     logger::enable_logging(config.log.verbose || command.verbose);
 
-    info!("Loading sources and modules...");
-    enable_indent();
+    debug!("Loading sources and modules...");
 
     // Load registry
     let mut registry = Registry::new(&config);
@@ -46,8 +45,7 @@ fn main() {
         exit(-1);
     }
 
-    disable_indent();
-    info!("Loading was successful");
+    debug!("Loading was successful");
 
     println!();
     match command.topic {
@@ -65,6 +63,7 @@ fn main() {
             }
         },
         SubCommand::Install { module } => {
+            registry.install(&module);
         }
         _ => {}
     }

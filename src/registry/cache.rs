@@ -3,6 +3,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, format_err};
 use log::{debug, error, warn};
+use serde::__serialize_unimplemented;
 use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
@@ -84,6 +85,11 @@ impl Cache {
     /// Finds an installed module by its qualifier
     pub fn module(&self, unique: &str) -> Option<&InstalledModule> {
         self.modules.iter().find(|m| m.module.qualifier.unique() == unique)
+    }
+
+    /// Checks whether it has an installed module
+    pub fn has_module(&self, unique: &str) -> bool {
+        self.modules.iter().any(|m| m.module.qualifier.unique() == unique)
     }
 
 

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub const CONFIG_FILE: &str = "~/.config/pusta/config.yml";
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Config {
 
     pub repositories: ConfigRepository,
@@ -19,7 +19,7 @@ pub struct Config {
 
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ConfigRepository {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub main: Option<String>,
@@ -40,7 +40,7 @@ pub struct ConfigPackage {
     pub remove: String
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct ConfigLog {
     pub log_files: bool,
     pub verbose: bool

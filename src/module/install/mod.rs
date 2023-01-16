@@ -13,12 +13,18 @@ use crate::jobs::resources::{JobResources, ResourceFile};
 use crate::module::install::neoshell::Shell;
 use crate::module::Module;
 use crate::output;
+use crate::registry::cache::Cache;
+use serde_with::{serde_as, TimestampMilliSeconds};
+use serde_with::formats::Flexible;
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InstalledModule {
     pub module: Module,
     pub data: Vec<JobData>,
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     pub installed: SystemTime,
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     pub updated: SystemTime
 }
 
@@ -28,19 +34,19 @@ pub struct JobData {
     resources: Vec<ResourceFile>
 }
 
-struct Installer {
-    shell: Shell,
-
+pub struct Installer {
+    shell: Shell
 }
 
 impl Installer {
-    fn cache_path(module: &Module, path: &Path) -> PathBuf {
-        let mut cache = path.to_owned();
-        cache.push(module.qualifier.unique().replace("/", "-"));
-        cache
+
+    pub fn new(shell: Shell) -> Self {
+        return Installer {
+            shell
+        }
     }
 
-    pub fn install(&self, module: Module, cache_base: &Path) -> Option<InstalledModule> {
+    pub fn install(&self, module: Module, cache_handler: &Cache) -> Option<InstalledModule> {
 
         // Create environment
         let env = JobEnvironment {
@@ -49,7 +55,13 @@ impl Installer {
             module_path: module.path.clone(),
         };
 
-        let cache = Installer::cache_path(&module, cache_base);
+        let cache = match cache_handler.create_module_cache(&module) {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to determine job cache ({}), install cannot continue", e.to_string());
+                return None;
+            }
+        };
 
         let mut data = vec![];
 
@@ -89,7 +101,7 @@ impl Installer {
         // Uninstall on failure
         if failure && output::prompt_yn("Undo the already taken actions now?", true) {
 
-            self.uninstall(&result, cache_base);
+            self.uninstall(&result, cache_handler);
 
             None
         } else {
@@ -97,7 +109,7 @@ impl Installer {
         }
     }
 
-    pub fn uninstall(&self, module: &InstalledModule, cache: &Path) {
+    pub fn uninstall(&self, module: &InstalledModule, cache_handler: &Cache) {
         // Create environment
         let env = JobEnvironment {
             shell: &self.shell,
@@ -105,7 +117,13 @@ impl Installer {
             module_path: module.module.path.clone(),
         };
 
-        let cache = Installer::cache_path(&module.module, cache);
+        let cache = match cache_handler.create_module_cache(&module.module) {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to determine job cache for uninstall ({}), uninstall will probably fail", e.to_string());
+                PathBuf::from(format!("/tmp/pusta/{}", module.module.qualifier.unique())) // tmp as fallback
+            }
+        };
 
         // Go through every job with its data in reverse order
         let mut clean = true;

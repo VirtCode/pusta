@@ -23,7 +23,7 @@ impl Shell {
         }
     }
 
-    /// Runs a arbitrary command on the user's shell
+    /// Runs an arbitrary command on the user's shell
     pub fn run(&self, command: &str, root: bool, output: bool) -> anyhow::Result<()> {
         let command = if root {
             self.shell_config.root_elevator.replace(ROOT_COMMAND_KEY, command)
@@ -77,7 +77,7 @@ impl Shell {
 
     /// Creates a symlink for a file or directory
     pub fn link(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
-        let command = format!("cp -s {} {}", source.canonicalize()?.to_string_lossy(), destination.canonicalize()?.to_string_lossy());
+        let command = format!("ln -s {} {}", source.canonicalize()?.to_string_lossy(), destination.canonicalize()?.to_string_lossy());
 
         self.run(&command, root, false)
     }

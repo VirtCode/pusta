@@ -14,63 +14,57 @@ pub struct Command {
 
 #[derive(Subcommand)]
 pub enum SubCommand {
-    // Loads main repository and uses the provided config
+    /// Loads main repository and uses the provided config
     Load {
         folder: Option<String>
     },
 
-    // Modify the repositories
-    Repo {
+    /// Installs a module
+    Install {
+        /// Qualifier of module
+        module: String
+    },
+
+    /// Uninstalls a module
+    Remove {
+        /// Qualifier of module
+        module: String
+    },
+
+    /// Lists added sources and installed modules
+    List,
+
+    /// Queries for modules and shows relevant information
+    Query {
+        /// Qualifier to query for
+        module: String
+    },
+
+    /// Change the module sources
+    Source {
         #[clap(subcommand)]
         action: RepositoryCommand,
     },
 
-    // Modify the modules
-    Module {
-        #[clap(subcommand)]
-        action: ModuleCommand,
-    },
+    Update
 
-    Reload
-
-}
-
-#[derive(Subcommand)]
-pub enum ModuleCommand {
-    // Installs a module
-    Install {
-        module: String
-    },
-
-    // Removes a module
-    Remove {
-        module: String
-    },
-
-    // Updates all or specified module(s)
-    Update {
-        modules: Option<Vec<String>>
-    }
 }
 
 #[derive(Subcommand)]
 pub enum RepositoryCommand {
-    // Adds a repository to the sources
+    /// Adds a repository to the sources
     Add {
+        /// Path of the directory the repository lives
         path: Option<String>,
 
+        /// Custom alias for the repository
         #[clap(short, long)]
         alias: Option<String>
     },
 
-    // Removes a repository with all installed modules
+    /// Removes a source without removing its modules
     Remove {
+        /// Alias of source to remove
         alias: String
     },
-
-    // Queries or changes the main repository to another repo
-    Main {
-        alias: Option<String>
-    }
-
 }

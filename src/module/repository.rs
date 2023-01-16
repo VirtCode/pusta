@@ -24,13 +24,13 @@ impl Repository {
     pub fn load(folder: &Path, alias: Option<&str>) -> anyhow::Result<Self>{
 
         // Read config
-        let path = folder.clone().join(REPOSITORY_CONFIG);
+        let path = folder.join(REPOSITORY_CONFIG);
         let config: RepositoryConfig = serde_yaml::from_reader(File::open(&path).with_context(|| format!("Failed to open repository config file at {}", path.to_string_lossy()))?).with_context(|| format!("Failed to parse repository config file at {}", path.to_string_lossy()))?;
 
         let name = alias.map(|s| s.to_owned())
             .or(config.alias)
-            .or(folder.file_name().map(|s| s.to_string_lossy().to_string()))
-            .context("Could not find name for module")?;
+            .or_else(|| folder.canonicalize().ok()?.file_name().map(|s| s.to_string_lossy().to_string()))
+            .context("Could not find name for repository")?;
 
         Ok(Repository {
             location: fs::canonicalize(folder)?,

@@ -7,7 +7,6 @@ use std::time::Duration;
 use log::{debug, error, info, warn};
 use crate::config::{Config, ConfigSecurity, ConfigShell, ConfirmStrategy, PreviewStrategy};
 use crate::output;
-use crate::output::loading::Loading;
 use crate::output::prompt_yn;
 
 const FALLBACK_SHELL: &str = "/bin/sh";

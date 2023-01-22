@@ -16,6 +16,7 @@ use crate::output;
 use crate::registry::cache::Cache;
 use serde_with::{serde_as, TimestampMilliSeconds};
 use serde_with::formats::Flexible;
+use colored::Colorize;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
@@ -149,6 +150,7 @@ impl Installer {
     }
 
     pub fn install_job(job: &Job, env: &JobEnvironment, cache: &Path) -> JobData {
+        info!("{}...", job.title().bright_white());
 
         // Prepare writer
         let mut writer = InstallWriter {
@@ -173,6 +175,7 @@ impl Installer {
     }
 
     pub fn uninstall_job(job: &Job, env: &JobEnvironment, cache: &Path) -> bool {
+        info!("Undoing \"{}\"...", job.title().bright_white());
 
         // Prepare reader
         let reader = InstallReader {

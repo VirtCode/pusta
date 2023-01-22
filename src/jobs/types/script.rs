@@ -48,6 +48,6 @@ impl Installable for ScriptJob {
     }
 
     fn construct_title(&self) -> String {
-        format!("run the install script {}", self.install)
+        format!("Running the install script {}", self.install)
     }
 }

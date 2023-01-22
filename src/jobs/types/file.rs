@@ -81,7 +81,7 @@ impl Installable for FileJob {
     fn construct_title(&self) -> String {
         let action = self.link.unwrap_or(false);
         format!("{} the file '{}' to its target location",
-            if action { "link" } else { "copy" },
+            if action { "Linking" } else { "Copying" },
             &self.file
         )
     }

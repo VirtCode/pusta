@@ -34,6 +34,6 @@ impl Installable for CommandJob {
     }
 
     fn construct_title(&self) -> String {
-        "run a custom set command".to_owned()
+        "Running a custom set command".to_owned()
     }
 }

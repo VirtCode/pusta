@@ -127,10 +127,13 @@ impl Registry {
         for module in modules {
             let unique = module.qualifier.unique();
 
+            output::start_section(&format!("Installing module '{unique}'"));
+
             if let Some(m) = installer.install(module, &self.cache) {
+                output::end_section(true, &format!("Successfully installed module '{unique}'"));
                 installed.push(m);
             } else {
-                warn!("Failed to install module '{unique}'");
+                output::end_section(false, &format!("Failed to install module '{unique}'"));
                 if !output::prompt_yn("Do you want to continue with the installation of the rest?", true) {
                     break;
                 }
@@ -177,7 +180,9 @@ impl Registry {
         }
 
         let installer = Installer::new(Shell::new(&self.config));
+        output::start_section(&format!("Removing module '{}' ...", module.module.qualifier.unique()));
         installer.uninstall(module, &self.cache);
+        output::end_section(true, "Finished removal of module");
 
         self.cache.delete_module_cache(&module.module).unwrap_or_else(|e| {
             debug!("Failed to delete module cache ({}), filesystem may stay polluted", e.to_string());

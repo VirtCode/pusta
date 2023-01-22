@@ -31,12 +31,14 @@ impl Installable for FileJob {
 
         if target.exists() {
             // There is already a file at the target location
+            info!("Caching and removing current file");
             writer.cache.cache_foreign(&target, "original");
             env.shell.remove(&target, root).context("Failed to remove original file to replace")?;
 
         } else if let Some(path) = target.parent() {
             if !path.exists() {
                 // Parent dir does not yet exist
+                info!("Making parent directory");
                 env.shell.make_dir(path, root).context("Failed to make parent directories")?;
 
             } else if !path.is_dir() {
@@ -47,9 +49,11 @@ impl Installable for FileJob {
 
         // Link or Copy file
         if self.link.unwrap_or(false) {
+            info!("Linking file to target location");
             env.shell.link(&file, &target, root).context("Failed to create symlink")?;
         } else {
             // TODO: process variables
+            info!("Copying file to target location");
             env.shell.copy(&file, &target, root).context("Failed to copy file")?;
         }
 
@@ -68,10 +72,12 @@ impl Installable for FileJob {
         }
 
         // Remove managed file
+        info!("Removing file at target location");
         env.shell.remove(&target, self.root.unwrap_or(false)).context("Failed to remove installed file")?;
 
         if let Some(original) = reader.cache.retrieve("original") {
             // Restore original file
+            info!("Restoring original file");
             env.shell.copy(&original, &target, self.root.unwrap_or(false)).context("Failed to restore original file")?;
         }
 

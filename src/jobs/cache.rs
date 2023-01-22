@@ -3,7 +3,7 @@ use std::os::unix::raw::time_t;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use log::{error, warn};
-use crate::module::install::neoshell::Shell;
+use crate::module::install::shell::Shell;
 use serde::{Deserialize, Serialize};
 use crate::jobs::JobEnvironment;
 

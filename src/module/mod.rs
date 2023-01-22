@@ -9,7 +9,6 @@ use colored::Colorize;
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use crate::jobs::Job;
-use crate::module::install::shell::Shell;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::output;

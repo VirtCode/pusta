@@ -9,8 +9,6 @@ use log::{debug, error, info, LevelFilter, warn};
 use crate::command::{Command, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use clap::Parser;
-use crate::module::install::shell;
-use crate::module::install::shell::Shell;
 use crate::output::{end_section, logger, start_section};
 use crate::output::logger::{disable_indent, enable_indent};
 use crate::registry::Registry;

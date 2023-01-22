@@ -61,13 +61,11 @@ pub fn start_section(message: &str) {
 }
 
 pub fn start_shell(message: &str) {
-    info!("{}", message);
-    println!("{}", "╭──╯".dimmed());
+    println!("{}{}\n", "╭─ ".dimmed().bold(), message);
 }
 
-pub fn end_shell(success: bool, message: &str) {
-    println!("{}", "╰──╮".dimmed());
-    info!("{}", message);
+pub fn end_shell(message: &str) {
+    println!("\n{}{}", "╰─ ".dimmed().bold(), message);
 }
 
 pub fn end_section(success: bool, message: &str) {

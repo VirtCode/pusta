@@ -1,5 +1,5 @@
 pub mod shell;
-pub(crate) mod neoshell;
+pub mod checked;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,13 +10,14 @@ use serde::{Deserialize, Serialize};
 use crate::jobs::{InstallReader, InstallWriter, Job, JobEnvironment};
 use crate::jobs::cache::{JobCacheReader, JobCacheWriter};
 use crate::jobs::resources::{JobResources, ResourceFile};
-use crate::module::install::neoshell::Shell;
+use crate::module::install::shell::Shell;
 use crate::module::Module;
 use crate::output;
 use crate::registry::cache::Cache;
 use serde_with::{serde_as, TimestampMilliSeconds};
 use serde_with::formats::Flexible;
 use colored::Colorize;
+use crate::module::install::checked::CheckedShell;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
@@ -36,13 +37,13 @@ pub struct JobData {
 }
 
 pub struct Installer {
-    shell: Shell
+    shell: CheckedShell
 }
 
 impl Installer {
 
-    pub fn new(shell: Shell) -> Self {
-        return Installer {
+    pub fn new(shell: CheckedShell) -> Self {
+        Installer {
             shell
         }
     }

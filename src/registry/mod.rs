@@ -8,8 +8,9 @@ use anyhow::{Error, format_err};
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
+use crate::module::install::checked::CheckedShell;
 use crate::module::install::Installer;
-use crate::module::install::neoshell::Shell;
+use crate::module::install::shell::Shell;
 use crate::module::repository::Repository;
 use crate::output;
 use crate::output::logger::{disable_indent, enable_indent};
@@ -122,7 +123,7 @@ impl Registry {
 
         // Do installation
         let mut installed = vec![];
-        let installer = Installer::new(Shell::new(&self.config));
+        let installer = Installer::new(CheckedShell::new(&self.config));
 
         for module in modules {
             let unique = module.qualifier.unique();
@@ -179,7 +180,7 @@ impl Registry {
             return;
         }
 
-        let installer = Installer::new(Shell::new(&self.config));
+        let installer = Installer::new(CheckedShell::new(&self.config));
         output::start_section(&format!("Removing module '{}' ...", module.module.qualifier.unique()));
         installer.uninstall(module, &self.cache);
         output::end_section(true, "Finished removal of module");

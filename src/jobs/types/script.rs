@@ -1,4 +1,5 @@
 use anyhow::{Context, Error};
+use log::info;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
@@ -21,10 +22,11 @@ impl Installable for ScriptJob {
         path.push(&self.install);
         if !path.exists() { return Err(Error::msg(format!("Script ('{}') does not exist", path.to_string_lossy()))) }
 
-        // Prepare and run script
-        env.shell.make_executable(&path, false).context("Failed to make script executable")?; // no root because the file is in the pusta repo
+        info!("Launching install script file");
+        // Prepare and run script (unchecked because in own directory)
+        env.shell.unchecked.make_executable(&path, false).context("Failed to make script executable")?; // no root because the file is in the pusta repo
         // TODO: Process variables
-        env.shell.run(&path.canonicalize()?.to_string_lossy(), self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Script execution failed")?;
+        env.shell.run_script(&path, self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Script execution failed")?;
 
         // Cache uninstall file
         if let Some(uninstall) = &self.uninstall {
@@ -41,7 +43,8 @@ impl Installable for ScriptJob {
 
         // Run uninstaller if present
         if let Some(uninstall) = reader.cache.retrieve("uninstall") {
-            env.shell.run(&uninstall.canonicalize()?.to_string_lossy(), self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Failed to run uninstaller script")?;
+            info!("Launching uninstaller script file");
+            env.shell.run_script(&uninstall, self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Failed to run uninstaller script")?;
         }
 
         Ok(())

@@ -21,18 +21,13 @@ impl Installable for PackageJob {
     fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
         let names = self.name_vec();
 
-        info!("Using configured package manager for install");
-
         env.shell.install(names)?;
 
-        info!("Successfully installed all required packages");
         Ok(())
     }
 
     fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
         let names = self.name_vec();
-
-        info!("Removing previously installed packages");
 
         env.shell.uninstall(names)?;
 

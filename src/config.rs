@@ -72,13 +72,13 @@ pub enum PreviewStrategy {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ConfigSecurity {
-    #[serde(skip_serializing_if = "is_false")]
+    #[serde(skip_serializing_if = "is_false", default)]
     pub extra_confirm_everything: bool,
 
     pub confirm_packages: bool,
     pub preview_scripts: PreviewStrategy,
     pub confirm_scripts: ConfirmStrategy,
-    pub confirm_copy: ConfirmStrategy
+    pub confirm_files: ConfirmStrategy
 }
 fn is_false(value: &bool) -> bool { !*value }
 
@@ -108,7 +108,7 @@ impl Default for Config {
                 confirm_packages: true,
                 preview_scripts: PreviewStrategy::Ask,
                 confirm_scripts: ConfirmStrategy::Yes,
-                confirm_copy: ConfirmStrategy::Root
+                confirm_files: ConfirmStrategy::Root
             }
         }
     }

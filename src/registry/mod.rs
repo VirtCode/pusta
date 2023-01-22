@@ -2,10 +2,11 @@ mod index;
 pub mod cache;
 
 use std::ops::Deref;
+use std::os::unix::raw::time_t;
 use std::path::{Path, PathBuf};
 use anyhow::{Error, format_err};
 use colored::Colorize;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use crate::config::Config;
 use crate::module::install::Installer;
 use crate::module::install::neoshell::Shell;
@@ -88,7 +89,7 @@ impl Registry {
 
         let index =
             if modules.len() == 1 { 0 }
-            else { output::prompt_choice("Which module do you mean?", &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(), None) };
+            else { output::prompt_choice("Which module do you want to install?", &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(), None) };
 
         let module = modules.get(index).expect("index math went wrong");
 
@@ -101,8 +102,8 @@ impl Registry {
         // Collect modules
         let modules = vec![module.deref().clone()]; // Copy now, since it is used for sure here
 
-        info!("Resolving dependencies...");
-        warn!("not yet implemented");
+        debug!("Resolving dependencies...");
+        // TODO: Check for dependencies
 
         // Prompt user for confirmation
         println!();
@@ -142,6 +143,47 @@ impl Registry {
             })
         }
 
-        info!("Installation finished")
+        info!("Finished installing modules")
+    }
+
+    pub fn remove(&mut self, name: &str) {
+        let modules = self.cache.query_module(name);
+        if modules.is_empty() {
+            error!("Couldn't find installed module for '{name}', make sure one is installed");
+            return;
+        }
+
+        let index =
+            if modules.len() == 1 { 0 }
+            else { output::prompt_choice("Which module do you want to remove?", &modules.iter()
+                .map(|m| format!("{} ({})", m.module.qualifier.unique(), &m.module.name))
+                .collect(), None) };
+
+        let module = *modules.get(index).expect("index math went wrong");
+
+        debug!("Checking for dependents");
+        // TODO: Check for dependents
+
+        // Prompt user for confirmation
+        println!();
+        info!("Module scheduled for uninstall: {} ({}-{})",
+            module.module.name.bold(),
+            module.module.qualifier.unique(),
+            module.module.version.dimmed());
+
+        if !output::prompt_yn("Do you want to remove this module now?", true) {
+            error!("Removal canceled by user");
+            return;
+        }
+
+        let installer = Installer::new(Shell::new(&self.config));
+        installer.uninstall(module, &self.cache);
+
+        self.cache.delete_module_cache(&module.module).unwrap_or_else(|e| {
+            debug!("Failed to delete module cache ({}), filesystem may stay polluted", e.to_string());
+        });
+        self.cache.remove_module(&module.module.qualifier.unique());
+
+        info!("Finished removing module");
     }
 }

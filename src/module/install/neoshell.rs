@@ -2,7 +2,7 @@ use std::env;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use anyhow::Error;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use crate::config::{Config, ConfigSecurity, ConfigShell};
 use crate::output;
 
@@ -56,7 +56,7 @@ impl Shell {
 
     /// Makes all directories for the given path
     pub fn make_dir(&self, path: &Path, root: bool) -> anyhow::Result<()> {
-        let command = format!("mkdir -p {}", path.canonicalize()?.to_string_lossy());
+        let command = format!("mkdir -p {}", path.to_string_lossy());
 
         self.run(&command, root, false)
     }
@@ -70,14 +70,14 @@ impl Shell {
 
     /// Copies a file or directory to a specific place
     pub fn copy(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
-        let command = format!("cp -r {} {}", source.canonicalize()?.to_string_lossy(), destination.canonicalize()?.to_string_lossy());
+        let command = format!("cp -r {} {}", source.canonicalize()?.to_string_lossy(), destination.to_string_lossy());
 
         self.run(&command, root, false)
     }
 
     /// Creates a symlink for a file or directory
     pub fn link(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
-        let command = format!("ln -s {} {}", source.canonicalize()?.to_string_lossy(), destination.canonicalize()?.to_string_lossy());
+        let command = format!("ln -s {} {}", source.canonicalize()?.to_string_lossy(), destination.to_string_lossy());
 
         self.run(&command, root, false)
     }

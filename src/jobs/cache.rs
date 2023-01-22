@@ -62,6 +62,10 @@ impl JobCacheWriter {
 
     /// Collects the marked files to a cache location
     pub fn end(&self, target: &Path) {
+        if let Err(e) = fs::create_dir_all(target) {
+            error!("Failed to create job cache directory: {}", e.to_string());
+        }
+
         for (alias, path) in &self.files {
             let mut location = target.to_owned();
             location.push(alias);

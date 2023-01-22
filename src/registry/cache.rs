@@ -92,6 +92,17 @@ impl Cache {
         self.modules.iter().any(|m| m.module.qualifier.unique() == unique)
     }
 
+    /// Queries the installed modules for a specific module
+    pub fn query_module(&self, query: &str) -> Vec<&InstalledModule>{
+        self.modules.iter().filter(|m| {
+            if query.contains('/') {
+                m.module.qualifier.unique() == query
+            } else {
+                m.module.qualifier.name() == query
+            }
+        }).collect()
+    }
+
 
     /// Reads added repositories from file
     fn read_repositories(&mut self) {
@@ -156,7 +167,7 @@ impl Cache {
     pub fn create_module_cache(&self, module: &Module) -> anyhow::Result<PathBuf> {
         let mut path = self.folder.clone();
         path.push(DATA);
-        path.push(module.qualifier.unique());
+        path.push(module.qualifier.unique().replace('/', "-"));
 
         fs::create_dir_all(&path)?;
 
@@ -167,9 +178,11 @@ impl Cache {
     pub fn delete_module_cache(&self, module: &Module) -> anyhow::Result<()> {
         let mut path = self.folder.clone();
         path.push(DATA);
-        path.push(module.qualifier.unique());
+        path.push(module.qualifier.unique().replace('/', "-"));
 
-        fs::remove_dir_all(&path)?;
+        // For some reason, this function works but always returns an error, this is why it is ignored here
+        // TODO: Do more investigations regarding fs::remove_dir_all
+        let _ = fs::remove_dir_all(&path);
         Ok(())
     }
 }

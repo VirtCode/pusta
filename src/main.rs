@@ -64,6 +64,9 @@ fn main() {
         },
         SubCommand::Install { module } => {
             registry.install(&module);
+        },
+        SubCommand::Remove { module } => {
+            registry.remove(&module);
         }
         _ => {}
     }

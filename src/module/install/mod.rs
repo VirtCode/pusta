@@ -68,10 +68,10 @@ impl Installer {
         let mut data = vec![];
 
         // Install every job
-        let mut failure = false;
+        let mut failure: i32 = -1;
         for (i, job) in module.jobs.iter().enumerate() {
             // If failed before, do not install next one
-            if failure {
+            if failure != -1 {
                 data.push(JobData::default());
                 continue;
             }
@@ -87,8 +87,8 @@ impl Installer {
             if !success {
                 if job.optional() {
                     warn!("Continuing because the job is optional");
-                } else if !output::prompt_yn("The last job failed to complete, continue anyway?", false) {
-                    failure = true;
+                } else if i == module.jobs.len() - 1 || !output::prompt_yn("The last job failed to complete, continue anyway?", false) {
+                    failure = i as i32;
                 }
             }
         }
@@ -100,15 +100,24 @@ impl Installer {
             updated: SystemTime::now(),
         };
 
-        // Uninstall on failure
-        if failure && output::prompt_yn("Undo the already taken actions now?", true) {
 
-            self.uninstall(&result, cache_handler);
+        if failure != -1 {
+            error!("Not every job could be installed successfully");
 
-            None
-        } else {
-            Some(result)
+            // First job failed, nothing to undo
+            if failure == 0 {
+                return None;
+            }
+
+            // Uninstall on failure
+            if output::prompt_yn("Undo the already taken actions now?", true) {
+
+                self.uninstall(&result, cache_handler);
+                return None;
+            }
         }
+
+        Some(result)
     }
 
     pub fn uninstall(&self, module: &InstalledModule, cache_handler: &Cache) {
@@ -161,7 +170,7 @@ impl Installer {
 
         // Perform install
         let success = if let Err(e) = job.install(env, &mut writer) {
-            error!("Failed to do job: {e}");
+            error!("{e}");
             false
         } else { true };
 

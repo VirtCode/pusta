@@ -12,7 +12,7 @@ pub struct CommandJob {
     root: Option<bool>
 }
 
-#[typetag::serde(name = "script")]
+#[typetag::serde(name = "command")]
 impl Installable for CommandJob {
 
     fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {

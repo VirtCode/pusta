@@ -38,7 +38,6 @@ fn main() {
     // Load registry
     let mut registry = Registry::new(&config);
     if let Err(e) = registry.load() {
-        disable_indent();
         error!("Failed to load registry: {}", e.to_string());
         exit(-1);
     }
@@ -65,7 +64,13 @@ fn main() {
         },
         SubCommand::Remove { module } => {
             registry.remove(&module);
-        }
+        },
+        SubCommand::List => {
+            registry.list();
+        },
+        SubCommand::Query { module } => {
+            registry.query(&module);
+        },
         _ => {}
     }
 

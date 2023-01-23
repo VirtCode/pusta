@@ -5,6 +5,7 @@ use std::ops::Deref;
 use std::os::unix::raw::time_t;
 use std::path::{Path, PathBuf};
 use anyhow::{Error, format_err};
+use chrono::{DateTime, Local, NaiveDateTime};
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
@@ -13,6 +14,7 @@ use crate::module::install::Installer;
 use crate::module::install::shell::Shell;
 use crate::module::repository::Repository;
 use crate::output;
+use crate::output::logger;
 use crate::output::logger::{disable_indent, enable_indent};
 use crate::registry::cache::Cache;
 use crate::registry::index::Index;
@@ -92,6 +94,7 @@ impl Registry {
             if modules.len() == 1 { 0 }
             else { output::prompt_choice("Which module do you want to install?", &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(), None) };
 
+        if modules.len() > 1 { println!(); }
         let module = modules.get(index).expect("index math went wrong");
 
         // Make sure not already installed
@@ -107,7 +110,6 @@ impl Registry {
         // TODO: Check for dependencies
 
         // Prompt user for confirmation
-        println!();
         info!("Modules scheduled for install:");
         for module in &modules {
             println!("   {} ({}-{})",
@@ -121,11 +123,14 @@ impl Registry {
             return;
         }
 
+        println!();
+
         // Do installation
         let mut installed = vec![];
         let installer = Installer::new(CheckedShell::new(&self.config));
 
-        for module in modules {
+        let amount = modules.len();
+        for (i, module) in modules.into_iter().enumerate() {
             let unique = module.qualifier.unique();
 
             output::start_section(&format!("Installing module '{unique}'"));
@@ -135,7 +140,7 @@ impl Registry {
                 installed.push(m);
             } else {
                 output::end_section(false, &format!("Failed to install module '{unique}'"));
-                if !output::prompt_yn("Do you want to continue with the installation of the rest?", true) {
+                if i == amount - 1 || !output::prompt_yn("Do you want to continue with the installation of the rest?", true) {
                     break;
                 }
             }
@@ -147,7 +152,7 @@ impl Registry {
             })
         }
 
-        info!("Finished installing modules")
+        info!("Finished installing all modules")
     }
 
     pub fn remove(&mut self, name: &str) {
@@ -163,13 +168,13 @@ impl Registry {
                 .map(|m| format!("{} ({})", m.module.qualifier.unique(), &m.module.name))
                 .collect(), None) };
 
+        if modules.len() > 1 { println!(); }
         let module = *modules.get(index).expect("index math went wrong");
 
         debug!("Checking for dependents");
         // TODO: Check for dependents
 
         // Prompt user for confirmation
-        println!();
         info!("Module scheduled for uninstall: {} ({}-{})",
             module.module.name.bold(),
             module.module.qualifier.unique(),
@@ -179,6 +184,8 @@ impl Registry {
             error!("Removal canceled by user");
             return;
         }
+
+        println!();
 
         let installer = Installer::new(CheckedShell::new(&self.config));
         output::start_section(&format!("Removing module '{}' ...", module.module.qualifier.unique()));
@@ -192,4 +199,76 @@ impl Registry {
 
         info!("Finished removing module");
     }
+
+    pub fn list(&self) {
+        info!("Added source repositories:");
+        enable_indent();
+
+        if self.cache.repositories.is_empty() {
+            info!("{}", "No sources are currently added".italic().dimmed())
+        } else {
+            for repo in &self.cache.repositories {
+                info!("{} ({})",
+                    repo.name.bold(),
+                    repo.location.to_string_lossy())
+            }
+        }
+
+        disable_indent();
+        println!();
+
+        info!("Installed modules:");
+        enable_indent();
+
+        if self.cache.modules.is_empty() {
+            info!("{}", "No modules are currently installed".italic().dimmed())
+        } else {
+            for module in &self.cache.modules {
+                let naive: DateTime<Local> = module.installed.into();
+
+                let orphaned = if self.index.query(&module.module.qualifier.unique()).is_empty() {
+                    format!("-{}", "orphaned".red())
+                } else {
+                    String::default()
+                };
+
+                info!("{} ({}-{}{}) {} {}",
+                    module.module.name.bold(),
+                    module.module.qualifier.unique(),
+                    module.module.version.dimmed(),
+                    orphaned,
+                    "at".italic(),
+                    naive.format("%x").to_string().italic());
+            }
+        }
+        disable_indent();
+        println!();
+    }
+
+    pub fn query(&self, query: &str) {
+        let modules = self.index.query(query);
+
+        if modules.is_empty() {
+            info!("{}", "No modules qualify for this query".dimmed().italic())
+        } else {
+            for module in modules {
+                let installed = if !self.cache.query_module(&module.qualifier.unique()).is_empty() {
+                    "installed"
+                } else { "" };
+
+                let author = module.author.as_ref().map(|a| format!("by {a}")).unwrap_or_default();
+
+                info!("{}-{} {}\n {} {}\n {}\n",
+                    module.qualifier.unique(),
+                    module.version.dimmed(),
+                    installed.blue(),
+                    &module.name.bold(),
+                    author,
+                    module.description
+                )
+            }
+        }
+    }
+
+
 }

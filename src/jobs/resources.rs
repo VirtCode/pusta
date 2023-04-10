@@ -25,20 +25,9 @@ impl JobResources {
 
     pub fn process(&self, folder: &Path) -> Vec<ResourceFile>{
 
-        self.resources.iter().map(|s| {
-            // Get absolute path
-            let mut path = folder.to_owned();
-            path.push(s);
-            path.canonicalize().context("Failed to canonicalize resource path")?;
-
-            // Calculate checksum
-            let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);
-
-            Ok(ResourceFile {
-                file: s.clone(),
-                checksum,
-            })
-        }).filter_map(|r: anyhow::Result<ResourceFile>| {
+        self.resources.iter()
+            .map(|s| ResourceFile::process(s.clone(), folder))
+            .filter_map(|r: anyhow::Result<ResourceFile>| {
             // Only retain successes
             match r {
                 Ok(f) => Some(f),
@@ -56,4 +45,33 @@ impl JobResources {
 pub struct ResourceFile {
     file: String,
     checksum: String
+}
+
+impl ResourceFile {
+
+    fn process(file: String, folder: &Path) -> anyhow::Result<Self> {
+        // Get absolute path
+        let mut path = folder.to_owned();
+        path.push(&file);
+        path.canonicalize().context("Failed to canonicalize resource path")?;
+
+        // Calculate checksum
+        let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);
+
+        Ok(ResourceFile {
+            file,
+            checksum,
+        })
+    }
+
+    pub fn up_to_date(&self, folder: &Path) -> anyhow::Result<bool> {
+        // Get absolute path
+        let mut path = folder.to_owned();
+        path.push(&self.file);
+        path.canonicalize().context("Failed to canonicalize resource path")?;
+
+        let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);
+
+        return Ok(self.checksum == checksum)
+    }
 }

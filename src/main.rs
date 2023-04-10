@@ -44,7 +44,10 @@ fn main() {
 
     debug!("Loading was successful");
 
-    println!();
+    if config.log.verbose {
+        println!();
+    }
+
     match command.topic {
         SubCommand::Source { action } => {
             match action {
@@ -71,6 +74,9 @@ fn main() {
         SubCommand::Query { module } => {
             registry.query(&module);
         },
+        SubCommand::Update { module } => {
+            registry.update_all();
+        }
         _ => {}
     }
 

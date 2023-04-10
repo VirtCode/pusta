@@ -46,7 +46,11 @@ pub enum SubCommand {
         action: RepositoryCommand,
     },
 
-    Update
+    /// Updates all modules
+    Update {
+        /// Only update this module
+        module: Option<String>
+    }
 
 }
 

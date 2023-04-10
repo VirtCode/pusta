@@ -3,7 +3,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct ScriptJob {
     install: String,
     uninstall: Option<String>,
@@ -15,7 +15,7 @@ pub struct ScriptJob {
 #[typetag::serde(name = "script")]
 impl Installable for ScriptJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
 
         // Create path to script
         let mut path = env.module_path.clone();

@@ -1,4 +1,6 @@
+use std::any::Any;
 use dyn_clone::{clone_trait_object, DynClone};
+use dyn_eq::{DynEq, eq_trait_object};
 use crate::jobs::cache::{JobCacheReader, JobCacheWriter};
 use crate::jobs::{InstallReader, InstallWriter, JobEnvironment};
 
@@ -7,14 +9,15 @@ mod file;
 mod script;
 mod command;
 
-// Has to be cloned during the install process creating a new installed module
+// Has to be cloned during the install process creating a new installed module and also needs to be compared
 clone_trait_object!(Installable);
+eq_trait_object!(Installable);
 
 /// This trait will specify a job procedure type used by a Job
 #[typetag::serde(tag = "type")]
-pub trait Installable: DynClone {
+pub trait Installable: DynClone + DynEq {
     /// Installs the procedure with a given environment
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()>;
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()>;
     /// Uninstalls the given procedure with a given environment
     fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()>;
 

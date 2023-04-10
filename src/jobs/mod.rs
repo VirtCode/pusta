@@ -34,7 +34,7 @@ pub struct InstallReader {
 }
 
 /// This struct represents a job which can be specified to be installed for a module
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Job {
     /// Title of the job, if none, one will be generated
     title: Option<String>,
@@ -58,8 +58,8 @@ impl Job {
     }
 
     /// Installs the job
-    pub fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
-        self.job.install(env, writer)
+    pub fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
+        self.job.install(env, writer, update)
     }
 
     /// Uninstalls the job

@@ -276,6 +276,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9b0705efd4599c15a38151f4721f7bc388306f61084d3bfd50bd07fbca5cb60"
 
 [[package]]
+name = "dyn-eq"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "295db830b560f828b110c0def5f4e8ff249c59fdeb337c0f7892694173f8ac58"
+
+[[package]]
 name = "erased-serde"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -519,6 +525,7 @@ dependencies = [
  "clap",
  "colored",
  "dyn-clone",
+ "dyn-eq",
  "log",
  "serde",
  "serde_json",

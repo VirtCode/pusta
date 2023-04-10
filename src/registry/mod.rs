@@ -10,8 +10,9 @@ use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
 use crate::module::install::checked::CheckedShell;
-use crate::module::install::Installer;
+use crate::module::install::{InstalledModule, Installer};
 use crate::module::install::shell::Shell;
+use crate::module::Module;
 use crate::module::repository::Repository;
 use crate::output;
 use crate::output::logger;
@@ -198,6 +199,79 @@ impl Registry {
         self.cache.remove_module(&module.module.qualifier.unique());
 
         info!("Finished removing module");
+    }
+
+    pub fn update_all(&mut self) {
+
+        info!("Looking for updates...");
+
+        let updatable: Vec<(&InstalledModule, Module)> = self.cache.modules.iter().filter_map(|installed| {
+
+            if let Some(indexed) = self.index.query(&installed.module.qualifier.unique()).first() {
+                if !installed.module.up_to_date(indexed) {
+                    return Some((installed, indexed.deref().clone()))
+                }
+            }
+
+            None
+        }).collect();
+
+        if updatable.is_empty() {
+            info!("Everything is up-to-date, there is nothing to do");
+            return;
+        }
+
+
+        // Prompt user for confirmation
+        println!();
+        info!("Modules scheduled for udpate:");
+        for (installed, new) in &updatable {
+            println!("   {} ({}-{} -> {}-{})",
+                     installed.module.name.bold(),
+                     installed.module.qualifier.unique(),
+                     installed.module.version.dimmed(),
+                     new.qualifier.unique(),
+                     new.version.dimmed());
+        }
+
+        if !output::prompt_yn("Do you want to update these modules now?", true) {
+            error!("Update cancelled by user");
+            return;
+        }
+
+        println!();
+
+        let mut results = vec![];
+
+        let installer = Installer::new(CheckedShell::new(&self.config));
+        for (installed, new) in updatable {
+            output::start_section(&format!("Updating module '{}'", installed.module.qualifier.unique()));
+
+            let result = installer.update(installed, new, &self.cache);
+
+            if let Some(option) = result {
+                if option.is_some() {
+                    output::end_section(true, &format!("Successfully updated module '{}'", installed.module.qualifier.unique()));
+                } else {
+                    output::end_section(false, &format!("Failure occurred during updating the module '{}', it is no longer installed", installed.module.qualifier.unique()));
+                }
+
+                results.push((installed.module.qualifier.unique(), option));
+            } else {
+                output::end_section(false, &format!("Couldn't update module '{}'", installed.module.qualifier.unique()));
+            }
+        }
+
+        // Persist changes in cache
+        for (old, new) in results {
+            self.cache.remove_module(&old);
+
+            if let Some(new) = new {
+                self.cache.install_module(new).unwrap_or_else(|e| {
+                    error!("Error whilst persisting install: {}", e.to_string());
+                })
+            }
+        }
     }
 
     pub fn list(&self) {

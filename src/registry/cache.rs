@@ -66,7 +66,7 @@ impl Cache {
     /// Adds a module to the installed modules
     pub fn install_module(&mut self, module: InstalledModule) -> anyhow::Result<()> {
         // Sanity check
-        if self.modules.iter().any(|m| m.module.qualifier.unique() == module.module.qualifier.unique()) {
+        if self.modules.iter().any(|m| m.module.qualifier == module.module.qualifier) {
             return Err(anyhow!("The module '{}' was installed twice it seems", module.module.qualifier.unique()))
         }
 
@@ -172,6 +172,21 @@ impl Cache {
         fs::create_dir_all(&path)?;
 
         Ok(path)
+    }
+
+    /// Migrates a module cache from an old one to a new one
+    pub fn migrate_module_cache(&self, old_module: &Module, new_module: &Module) -> anyhow::Result<()> {
+
+        let mut old = self.folder.clone();
+        old.push(DATA);
+        old.push(old_module.qualifier.unique().replace('/', "-"));
+
+        let mut new = self.folder.clone();
+        new.push(DATA);
+        new.push(new_module.qualifier.unique().replace('/', "-"));
+
+        fs::rename(&old, &new)?;
+        Ok(())
     }
 
     /// Removes a module cache folder

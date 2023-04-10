@@ -6,7 +6,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FileJob {
     file: String,
     location: String,
@@ -18,7 +18,7 @@ pub struct FileJob {
 #[typetag::serde(name = "file")]
 impl Installable for FileJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
         let root = self.link.unwrap_or(false);
 
         // Get source file
@@ -30,9 +30,12 @@ impl Installable for FileJob {
         let mut target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
 
         if target.exists() {
+
             // There is already a file at the target location
-            info!("Caching and removing current file");
-            writer.cache.cache_foreign(&target, "original");
+            if !update {
+                info!("Caching and removing current file");
+                writer.cache.cache_foreign(&target, "original");
+            }
             env.shell.remove(&target, root).context("Failed to remove original file to replace")?;
 
         } else if let Some(path) = target.parent() {

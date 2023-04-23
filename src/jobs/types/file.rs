@@ -2,7 +2,7 @@ use std::fmt::format;
 use std::fs;
 use std::path::PathBuf;
 use anyhow::{Context, Error};
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
@@ -18,7 +18,7 @@ pub struct FileJob {
 #[typetag::serde(name = "file")]
 impl Installable for FileJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
         let root = self.link.unwrap_or(false);
 
         // Get source file
@@ -30,12 +30,9 @@ impl Installable for FileJob {
         let mut target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
 
         if target.exists() {
-
             // There is already a file at the target location
-            if !update {
-                info!("Caching and removing current file");
-                writer.cache.cache_foreign(&target, "original");
-            }
+            info!("Caching and removing current file");
+            writer.cache.cache_foreign(&target, "original");
             env.shell.remove(&target, root).context("Failed to remove original file to replace")?;
 
         } else if let Some(path) = target.parent() {
@@ -85,6 +82,27 @@ impl Installable for FileJob {
         }
 
         Ok(())
+    }
+
+    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+        let old = old.as_any().downcast_ref::<Self>()?;
+
+        // Uninstall old file if necessary
+        if self.location != old.location {
+            old.uninstall(env, reader).unwrap_or_else(|e| warn!("{e}"));
+        }
+        
+        // Install new file
+        if let Err(e) = self.install(env, writer) {
+            return Some(Err(e));
+        }
+        
+        // Make sure that the original file is not overwritten if updating at the same location
+        if self.location == old.location {
+            writer.cache.undo_cache("original");
+        }
+
+        Some(Ok(()))
     }
 
     fn construct_title(&self) -> String {

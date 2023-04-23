@@ -58,8 +58,8 @@ impl Job {
     }
 
     /// Installs the job
-    pub fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
-        self.job.install(env, writer, update)
+    pub fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
+        self.job.install(env, writer)
     }
 
     /// Uninstalls the job

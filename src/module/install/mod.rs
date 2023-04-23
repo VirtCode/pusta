@@ -81,7 +81,7 @@ impl Installer {
             let mut cache = cache.clone();
             cache.push(i.to_string());
 
-            let result = Installer::install_job(job, &env, &cache, false);
+            let result = Installer::install_job(job, &env, &cache);
             let success = result.success;
             data.push(result);
 
@@ -172,6 +172,7 @@ impl Installer {
             let mut cache = cache.clone();
             cache.push(i.to_string());
 
+            // TODO: Use the update method every job provides. Also try to update jobs if job definitions have changed -> don't just reinstall
             let next_data = Installer::install_job(job, &env, &cache, true);
             if !next_data.success {
                 if data.success {
@@ -252,12 +253,8 @@ impl Installer {
         self.install(module, cache_handler)
     }
 
-    pub fn install_job(job: &Job, env: &JobEnvironment, cache: &Path, update: bool) -> JobData {
-        if !update {
-            info!("{}...", job.title().bright_white());
-        } else {
-            info!("Updating \"{}\"...", job.title().bright_white())
-        }
+    pub fn install_job(job: &Job, env: &JobEnvironment, cache: &Path) -> JobData {
+        info!("{}...", job.title().bright_white());
 
         // Prepare writer
         let mut writer = InstallWriter {
@@ -266,7 +263,7 @@ impl Installer {
         };
 
         // Perform install
-        let success = if let Err(e) = job.install(env, &mut writer, update) {
+        let success = if let Err(e) = job.install(env, &mut writer) {
             error!("{e}");
             false
         } else { true };

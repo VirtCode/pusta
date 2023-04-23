@@ -1,5 +1,5 @@
 use anyhow::Context;
-use log::info;
+use log::{info, warn};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 use serde::{Deserialize, Serialize};
 
@@ -8,6 +8,7 @@ pub struct CommandJob {
     install: String,
     uninstall: Option<String>,
 
+    reinstall: Option<bool>,
     show_output: Option<bool>,
     root: Option<bool>
 }
@@ -15,7 +16,7 @@ pub struct CommandJob {
 #[typetag::serde(name = "command")]
 impl Installable for CommandJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
 
         env.shell.run_command(&self.install, self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Failed to run custom command")?;
 
@@ -29,6 +30,16 @@ impl Installable for CommandJob {
         }
 
         Ok(())
+    }
+
+    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+        let old = old.as_any().downcast_ref::<Self>()?;
+
+        if self.reinstall.unwrap_or_default() {
+            self.uninstall(env, reader).unwrap_or_else(|e| warn!("{e}"));
+        }
+
+        Some(self.install(env, writer))
     }
 
     fn construct_title(&self) -> String {

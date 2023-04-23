@@ -1,5 +1,5 @@
 use anyhow::{Context, Error};
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
@@ -8,6 +8,7 @@ pub struct ScriptJob {
     install: String,
     uninstall: Option<String>,
 
+    reinstall: Option<bool>,
     show_output: Option<bool>,
     root: Option<bool>
 }
@@ -15,7 +16,7 @@ pub struct ScriptJob {
 #[typetag::serde(name = "script")]
 impl Installable for ScriptJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
 
         // Create path to script
         let mut path = env.module_path.clone();
@@ -48,6 +49,16 @@ impl Installable for ScriptJob {
         }
 
         Ok(())
+    }
+
+    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+        let old = old.as_any().downcast_ref::<Self>()?;
+
+        if self.reinstall.unwrap_or_default() {
+           self.uninstall(env, reader).unwrap_or_else(|e| warn!("{e}"));
+        }
+        
+        Some(self.install(env, writer))
     }
 
     fn construct_title(&self) -> String {

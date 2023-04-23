@@ -1,5 +1,7 @@
+use std::ops::Deref;
 use anyhow::Error;
-use log::info;
+use dyn_eq::DynEq;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
@@ -18,7 +20,7 @@ impl PackageJob {
 #[typetag::serde(name = "package")]
 impl Installable for PackageJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter, update: bool) -> anyhow::Result<()> {
+    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
         let names = self.name_vec();
 
         env.shell.install(names)?;
@@ -32,6 +34,22 @@ impl Installable for PackageJob {
         env.shell.uninstall(names)?;
 
         Ok(())
+    }
+
+    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+        let old = old.as_any().downcast_ref::<Self>()?;
+
+        // Compare packages
+        let old = old.name_vec();
+        let new = self.name_vec();
+
+        // Remove removed
+        let uninstall: Vec<String> = old.iter().filter(|s| !new.contains(*s)).cloned().collect();
+        env.shell.uninstall(uninstall).unwrap_or_else(|e| warn!("Couldn't uninstall removed packages properly: {e}"));
+
+        // Install new
+        let install: Vec<String> = new.iter().filter(|s| !old.contains(*s)).cloned().collect();
+        Some(env.shell.install(install))
     }
 
     fn construct_title(&self) -> String {

@@ -60,6 +60,11 @@ impl JobCacheWriter {
         }
     }
 
+    /// Removes a marked item from the list
+    pub fn undo_cache(&mut self, alias: &str) {
+        self.files.retain(|(a, _)| a != alias);
+    }
+
     /// Collects the marked files to a cache location
     pub fn end(&self, target: &Path) {
         if let Err(e) = fs::create_dir_all(target) {

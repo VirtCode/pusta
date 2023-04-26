@@ -66,4 +66,8 @@ impl Job {
     pub fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
         self.job.uninstall(env, reader)
     }
+
+    pub fn update(&self, old: &Job, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+        self.job.update(old.job.as_ref(), env, writer, reader)
+    }
 }

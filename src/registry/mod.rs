@@ -224,7 +224,7 @@ impl Registry {
 
         // Prompt user for confirmation
         println!();
-        info!("Modules scheduled for udpate:");
+        info!("Modules scheduled for update:");
         for (installed, new) in &updatable {
             println!("   {} ({}-{} -> {}-{})",
                      installed.module.name.bold(),
@@ -247,18 +247,14 @@ impl Registry {
         for (installed, new) in updatable {
             output::start_section(&format!("Updating module '{}'", installed.module.qualifier.unique()));
 
-            let result = installer.update(installed, new, &self.cache);
+            if let Some(module) = installer.update(installed, new, &self.cache) {
+                output::end_section(true, &format!("Updated module '{}'", installed.module.qualifier.unique()));
 
-            if let Some(option) = result {
-                if option.is_some() {
-                    output::end_section(true, &format!("Successfully updated module '{}'", installed.module.qualifier.unique()));
-                } else {
-                    output::end_section(false, &format!("Failure occurred during updating the module '{}', it is no longer installed", installed.module.qualifier.unique()));
-                }
-
-                results.push((installed.module.qualifier.unique(), option));
+                results.push((installed.module.qualifier.unique(), Some(module)));
             } else {
-                output::end_section(false, &format!("Couldn't update module '{}'", installed.module.qualifier.unique()));
+                output::end_section(false, &format!("Module update failed, '{}' is no longer installed", installed.module.qualifier.unique()));
+
+                results.push((installed.module.qualifier.unique(), None));
             }
         }
 

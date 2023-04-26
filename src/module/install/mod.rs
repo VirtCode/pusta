@@ -1,7 +1,7 @@
 pub mod shell;
 pub mod checked;
 
-use std::fs;
+use std::{cmp, fs};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use anyhow::{anyhow, Context, Error};
@@ -121,90 +121,6 @@ impl Installer {
         Some(result)
     }
 
-    pub fn update(&self, installed: &InstalledModule, module: Module, cache_handler: &Cache) -> Option<Option<InstalledModule>> {
-
-        // Reinstall module if required
-        if !installed.module.equals_jobs(&module) {
-            info!("Module update contains changed job definitions, performing re-installation");
-            return Some(self.reinstall(installed, module, cache_handler));
-        }
-
-
-        // Possibly migrate modules qualifier
-        if installed.module.qualifier != module.qualifier {
-            // Check that no cache is overwritten
-            if cache_handler.has_module(&module.qualifier.unique()) {
-                error!("Cannot migrate module qualifier to one that is already installed ({} -> {})", installed.module.qualifier.unique(), module.qualifier.unique());
-                return None;
-            }
-
-            if let Err(e) = cache_handler.migrate_module_cache(&installed.module, &module) {
-                warn!("Failed to migrate cache for new module qualifier ({} -> {}), some cache may be overwritten", installed.module.qualifier.unique(), module.qualifier.unique())
-            }
-        }
-
-        // Update Jobs
-        let env = JobEnvironment {
-            shell: &self.shell,
-            module: module.qualifier.unique().to_owned(),
-            module_path: module.path.clone(),
-        };
-
-        let cache = match cache_handler.create_module_cache(&module) {
-            Ok(c) => c,
-            Err(e) => {
-                error!("Failed to determine job cache ({}), update cannot continue", e.to_string());
-                return None;
-            }
-        };
-
-        let mut new_data = installed.data.clone();
-        let mut smooth = true;
-
-        for (i, (data, job)) in installed.data.iter()
-            .zip(&installed.module.jobs).enumerate()
-            .filter(|(_, (data, _))| {
-                    data.resources.iter().any(|resource| !resource.up_to_date(&installed.module.path).unwrap_or(false)) ||
-                    !data.success
-            }) {
-
-            // Prepare cache
-            let mut cache = cache.clone();
-            cache.push(i.to_string());
-
-            // TODO: Use the update method every job provides. Also try to update jobs if job definitions have changed -> don't just reinstall
-            let next_data = Installer::install_job(job, &env, &cache, true);
-            if !next_data.success {
-                if data.success {
-                    warn!("Previously installed {}job failed to update correctly", if job.optional() { "optional " } else { "" });
-                    smooth = false;
-                } else {
-                    warn!("Previously failed job install failed again")
-                }
-            }
-
-            new_data[i] = next_data;
-        }
-
-        let installed = InstalledModule {
-            module,
-            data: new_data,
-            installed: installed.installed.clone(),
-            updated: SystemTime::now()
-        };
-
-        if !smooth {
-            error!("Some jobs failed to update correctly, your install may be broken");
-
-            if prompt_yn("Do you want to remove this whole module?", false) {
-                self.uninstall(&installed, cache_handler);
-                return Some(None);
-            }
-        }
-
-        Some(Some(installed))
-    }
-
     pub fn uninstall(&self, module: &InstalledModule, cache_handler: &Cache) {
         // Create environment
         let env = JobEnvironment {
@@ -244,13 +160,129 @@ impl Installer {
         fs::remove_dir_all(&cache).unwrap_or_else(|e| error!("Failed to remove installed cache, future installs may fail: {e}"));
     }
 
-    pub fn reinstall(&self, installed: &InstalledModule, module: Module, cache_handler: &Cache) -> Option<InstalledModule> {
+    pub fn update(&self, installed: &InstalledModule, module: Module, cache_handler: &Cache) -> Option<InstalledModule> {
 
-        info!("Performing uninstall...");
-        self.uninstall(installed, cache_handler);
+        // Currently not supported:
+        // // Possibly migrate modules qualifier
+        // if installed.module.qualifier != module.qualifier {
+        //     // Check that no cache is overwritten
+        //     if cache_handler.has_module(&module.qualifier.unique()) {
+        //         error!("Cannot migrate module qualifier to one that is already installed ({} -> {})", installed.module.qualifier.unique(), module.qualifier.unique());
+        //         return None;
+        //     }
+        //
+        //     if let Err(e) = cache_handler.migrate_module_cache(&installed.module, &module) {
+        //         warn!("Failed to migrate cache for new module qualifier ({} -> {}), some cache may be overwritten", installed.module.qualifier.unique(), module.qualifier.unique())
+        //     }
+        // }
 
-        info!("Performing install...");
-        self.install(module, cache_handler)
+        // Update Jobs
+        let env = JobEnvironment {
+            shell: &self.shell,
+            module: module.qualifier.unique().to_owned(),
+            module_path: module.path.clone(),
+        };
+
+        let cache = match cache_handler.create_module_cache(&module) {
+            Ok(c) => c,
+            Err(e) => {
+                error!("Failed to determine job cache ({}), update cannot continue", e.to_string());
+                return None;
+            }
+        };
+
+        let mut new_data = vec![];
+        let mut failure = 0usize;
+
+        for (i, jobs) in module.jobs.iter()
+            .map(|j| Some(j)).chain(vec![None; cmp::max(0, installed.module.jobs.len() as i32 - module.jobs.len() as i32) as usize])
+            .zip(
+                installed.module.jobs.iter().zip(installed.data.iter())
+                    .map(|j| Some(j)).chain(vec![None; cmp::max(0, module.jobs.len() as i32 - installed.module.jobs.len() as i32) as usize])
+            ).enumerate() {
+
+            // Prepare cache
+            let mut cache = cache.clone();
+            cache.push(i.to_string());
+
+            if let (Some(new), Some((old, data))) = jobs {
+
+                // Skip unchanged jobs
+                if new == old && !data.resources.iter().any(|r| !r.up_to_date(&installed.module.path).unwrap_or(false)) {
+                    new_data.push(data.clone());
+                    continue;
+                }
+
+                // Update Job
+                if !data.success {
+                    let data = Installer::install_job(new, &env, &cache);
+                    if !data.success {
+                        error!("Previously failed {}job failed to install", if new.optional() { "optional" } else { "" });
+                        if !new.optional() { failure += 1; }
+                    }
+                    new_data.push(data);
+
+                } else if let Some(data) = Installer::update_job(new, old, &env, &cache) {
+                    if !data.success {
+                        error!("Failed to update {}job", if new.optional() { "optional" } else { "" });
+                        if !new.optional() { failure += 1; }
+                    }
+                    new_data.push(data);
+
+                } else {
+                    if Installer::uninstall_job(old, &env, &cache) {
+                        warn!("Reinstall did not remove properly, system may be polluted")
+                    }
+
+                    let data = Installer::install_job(new, &env, &cache);
+                    if !data.success {
+                        error!("Failed to reinstall {}job", if new.optional() { "optional" } else { "" });
+                        if !new.optional() { failure += 1; }
+                    }
+
+                    new_data.push(data);
+                }
+
+            } else if let (Some(new), None) = jobs {
+
+                // Install Job
+                let data = Installer::install_job(new, &env, &cache);
+
+                if !data.success {
+                    error!("Failed to install new {}job", if new.optional() { "optional" } else { "" });
+                    if !new.optional() { failure += 1; }
+                }
+
+                new_data.push(data);
+
+            } else if let (None, Some((old, data))) = jobs {
+
+                // Uninstall Job
+                if data.success && !Installer::uninstall_job(old, &env, &cache) {
+                    warn!("A removed job failed to uninstall, system may be polluted")
+                }
+
+            }
+        }
+
+        info!("Changing metadata");
+        let installed = InstalledModule {
+            module,
+            data: new_data,
+            installed: installed.installed.clone(),
+            updated: SystemTime::now()
+        };
+
+        if failure != 0 {
+            error!("{failure} essential job(s) failed to update correctly, your install may be broken");
+
+            if prompt_yn("Remove this whole module?", false) {
+                self.uninstall(&installed, cache_handler);
+                return None;
+            }
+        }
+
+        Some(installed)
     }
 
     pub fn install_job(job: &Job, env: &JobEnvironment, cache: &Path) -> JobData {
@@ -263,18 +295,12 @@ impl Installer {
         };
 
         // Perform install
-        let success = if let Err(e) = job.install(env, &mut writer) {
-            error!("{e}");
-            false
-        } else { true };
-
-        // Manage job data
+        let success = job.install(env, &mut writer).map_err(|e| error!("{e}")).is_ok();
         writer.cache.end(cache);
-        let resources = writer.resources.process(&env.module_path);
-
 
         JobData {
-            success, resources
+            success,
+            resources: writer.resources.process(&env.module_path)
         }
     }
 
@@ -290,5 +316,28 @@ impl Installer {
         if let Err(e) = job.uninstall(env, &reader) {
             error!("Failed to undo job: {e}"); false
         } else { true }
+    }
+
+    pub fn update_job(job: &Job, old: &Job, env: &JobEnvironment, cache: &Path) -> Option<JobData> {
+        info!("Updating \"{}\"...", job.title().bright_white());
+
+        // Prepare cache things
+        let reader = InstallReader {
+            cache: JobCacheReader::open(cache)
+        };
+        let mut writer = InstallWriter {
+            cache: JobCacheWriter::start(),
+            resources: JobResources::new()
+        };
+
+        // Try update job
+        job.update(old, env, &mut writer, &reader).map(|r| {
+            writer.cache.end(cache);
+
+            JobData {
+                success: r.map_err(|e| error!("{e}")).is_ok(),
+                resources: writer.resources.process(&env.module_path)
+            }
+        })
     }
 }

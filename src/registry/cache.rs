@@ -92,6 +92,33 @@ impl Cache {
         self.modules.iter().any(|m| m.module.qualifier.unique() == unique)
     }
 
+    /// Returns a possible module with a qualifier
+    pub fn find_module(&self, unique: &str) -> Option<&InstalledModule>{
+        self.modules.iter().find(|m| { m.module.qualifier.unique() == unique })
+    }
+
+    pub fn has_provider(&self, dep: &str) -> bool {
+        self.modules.iter().any(|m| m.module.qualifier.does_provide(dep))
+    }
+
+    pub fn find_providers(&self, dep: &str) -> Vec<&InstalledModule> {
+        self.modules.iter().filter(|m| m.module.qualifier.does_provide(dep)).collect()
+    }
+
+    /// Checks everywhere whether a module is being depended on
+    pub fn depended_upon(&self, installed: &InstalledModule, exclude: &Vec<ModuleQualifier>) -> Option<&InstalledModule> {
+        self.modules.iter().find(|m| {
+            m.module.qualifier != installed.module.qualifier && // Avoid modules that depend on themselves
+            !exclude.iter().any(|i| *i == m.module.qualifier) && // Ignore excludes
+            m.module.dependencies.iter().any(|s| {
+                // Concerned module does provide and
+                installed.module.qualifier.does_provide(s) &&
+                // No-one else does provide
+                !self.modules.iter().any(|m| m.module.qualifier != installed.module.qualifier && m.module.qualifier.does_provide(s))
+            })
+        })
+    }
+
     /// Queries the installed modules for a specific module
     pub fn query_module(&self, query: &str) -> Vec<&InstalledModule>{
         self.modules.iter().filter(|m| {

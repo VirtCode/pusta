@@ -41,6 +41,7 @@ pub struct ModuleConfig {
 pub struct Module {
     pub path: PathBuf,
     pub qualifier: ModuleQualifier,
+    pub dependencies: Vec<String>,
     checksum: String,
 
     pub name: String,
@@ -68,12 +69,15 @@ impl Module {
             f.chksum(HashAlgorithm::SHA1).map(|digest| format!("{:x}", digest)).context("Failed to calculate checksum")
         })?;
 
+        // Read dependencies
+        let dependencies: Vec<String> = config.depends.map(|s| s.split(' ').map(str::to_owned).collect()).unwrap_or_default();
+
 
         Ok(Self {
             path: location.to_owned(),
             qualifier: ModuleQualifier::new(parent.name.clone(), location, config.alias, config.provides),
             checksum,
-
+            dependencies,
             name: config.name,
             description: config.description,
             author: config.author,

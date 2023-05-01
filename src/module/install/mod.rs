@@ -28,7 +28,8 @@ pub struct InstalledModule {
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     pub installed: SystemTime,
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub updated: SystemTime
+    pub updated: SystemTime,
+    pub reason: InstallReason
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]
@@ -41,6 +42,12 @@ pub struct Installer {
     shell: CheckedShell
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub enum InstallReason {
+    Manual,
+    Dependency
+}
+
 impl Installer {
 
     pub fn new(shell: CheckedShell) -> Self {
@@ -49,7 +56,7 @@ impl Installer {
         }
     }
 
-    pub fn install(&self, module: Module, cache_handler: &Cache) -> Option<InstalledModule> {
+    pub fn install(&self, module: Module, cache_handler: &Cache, reason: InstallReason) -> Option<InstalledModule> {
 
         // Create environment
         let env = JobEnvironment {
@@ -99,6 +106,7 @@ impl Installer {
             data,
             installed: SystemTime::now(),
             updated: SystemTime::now(),
+            reason
         };
 
 
@@ -194,11 +202,12 @@ impl Installer {
         let mut new_data = vec![];
         let mut failure = 0usize;
 
+        // Create a zipped iterator with two options to accommodate for smaller and bigger job arrays
         for (i, jobs) in module.jobs.iter()
-            .map(|j| Some(j)).chain(vec![None; cmp::max(0, installed.module.jobs.len() as i32 - module.jobs.len() as i32) as usize])
+            .map(Some).chain(vec![None; cmp::max(0, installed.module.jobs.len() as i32 - module.jobs.len() as i32) as usize])
             .zip(
                 installed.module.jobs.iter().zip(installed.data.iter())
-                    .map(|j| Some(j)).chain(vec![None; cmp::max(0, module.jobs.len() as i32 - installed.module.jobs.len() as i32) as usize])
+                    .map(Some).chain(vec![None; cmp::max(0, module.jobs.len() as i32 - installed.module.jobs.len() as i32) as usize])
             ).enumerate() {
 
             // Prepare cache
@@ -270,7 +279,8 @@ impl Installer {
             module,
             data: new_data,
             installed: installed.installed.clone(),
-            updated: SystemTime::now()
+            updated: SystemTime::now(),
+            reason: installed.reason.clone()
         };
 
         if failure != 0 {

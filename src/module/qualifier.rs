@@ -37,7 +37,7 @@ impl ModuleQualifier {
         }
 
         // Is the module
-        self.name() == qualifier
+        self.name() == qualifier || self.unique() == qualifier
     }
 
     // Returns the full qualifier of that module

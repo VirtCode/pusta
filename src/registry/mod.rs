@@ -1,5 +1,6 @@
 mod index;
 pub mod cache;
+mod transaction;
 
 use std::ops::Deref;
 use std::os::unix::raw::time_t;
@@ -10,15 +11,18 @@ use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
 use crate::module::install::checked::CheckedShell;
-use crate::module::install::{InstalledModule, Installer};
+use crate::module::install::{InstalledModule, Installer, InstallReason};
+use crate::module::install::InstallReason::{Dependency, Manual};
 use crate::module::install::shell::Shell;
 use crate::module::Module;
+use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::output;
-use crate::output::logger;
+use crate::output::{logger, prompt_yn};
 use crate::output::logger::{disable_indent, enable_indent};
 use crate::registry::cache::Cache;
 use crate::registry::index::Index;
+use crate::registry::transaction::ModuleTransaction;
 
 pub struct Registry {
     index: Index,
@@ -41,6 +45,7 @@ impl Registry {
         self.index.load_repositories(&self.cache.repositories)
     }
 
+    // Adds a repository
     pub fn add(&mut self, repository: &Path, alias: Option<&str>) {
         info!("Adding repository at '{}' to sources{}",
                         repository.canonicalize().unwrap().to_string_lossy(),
@@ -71,6 +76,7 @@ impl Registry {
         info!("Successfully added repository")
     }
 
+    // Removes a repository
     pub fn unadd(&mut self, name: &str) {
         info!("Removing source repository under alias '{name}'");
 
@@ -83,128 +89,127 @@ impl Registry {
         }
     }
 
-    pub fn install(&mut self, name: &str) {
-        // Find packages
-        let modules = self.index.query(name);
-        if modules.is_empty() {
-            error!("Couldn't find module for '{name}', make sure it is spelled correctly and relevant sources are added");
-            return;
+    pub fn choose_one(modules: &Vec<&Module>, prompt: &str) -> Option<usize> {
+
+        match modules.len() {
+            0 => None,
+            1 => Some(0usize),
+            _ => {
+                Some(output::prompt_choice(
+                    prompt,
+                    &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(),
+                    None))
+            }
         }
+    }
 
-        let index =
-            if modules.len() == 1 { 0 }
-            else { output::prompt_choice("Which module do you want to install?", &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(), None) };
+    pub fn resolve_dependencies(&self, module: &Module, scheduled_modules: &mut Vec<ModuleQualifier>, new_transactions: &mut Vec<ModuleTransaction>) -> bool {
+        scheduled_modules.push(module.qualifier.clone());
 
-        if modules.len() > 1 { println!(); }
-        let module = modules.get(index).expect("index math went wrong");
+        for dep in &module.dependencies {
+            if self.cache.has_provider(dep) || scheduled_modules.iter().any(|m| m.does_provide(dep)) { continue }
 
-        // Make sure not already installed
-        if self.cache.has_module(&module.qualifier.unique()) {
-            error!("This module is already installed on your system");
-            return;
-        }
+            let providers = self.index.providers(dep);
+            if let Some(m) = Registry::choose_one(
+                &providers,
+                &format!("Multiple modules provide dependency '{dep}' for {}, choose:", module.qualifier.unique())).and_then(|i| providers.get(i).copied()) {
 
-        // Collect modules
-        let modules = vec![module.deref().clone()]; // Copy now, since it is used for sure here
+                new_transactions.push(ModuleTransaction::Install(m.clone(), Dependency));
+                self.resolve_dependencies(m, scheduled_modules, new_transactions);
 
-        debug!("Resolving dependencies...");
-        // TODO: Check for dependencies
-
-        // Prompt user for confirmation
-        info!("Modules scheduled for install:");
-        for module in &modules {
-            println!("   {} ({}-{})",
-                     module.name.bold(),
-                     module.qualifier.unique(),
-                     module.version.dimmed());
-        }
-
-        if !output::prompt_yn("Do you want to install these modules now?", true) {
-            error!("Installation cancelled by user");
-            return;
-        }
-
-        println!();
-
-        // Do installation
-        let mut installed = vec![];
-        let installer = Installer::new(CheckedShell::new(&self.config));
-
-        let amount = modules.len();
-        for (i, module) in modules.into_iter().enumerate() {
-            let unique = module.qualifier.unique();
-
-            output::start_section(&format!("Installing module '{unique}'"));
-
-            if let Some(m) = installer.install(module, &self.cache) {
-                output::end_section(true, &format!("Successfully installed module '{unique}'"));
-                installed.push(m);
             } else {
-                output::end_section(false, &format!("Failed to install module '{unique}'"));
-                if i == amount - 1 || !output::prompt_yn("Do you want to continue with the installation of the rest?", true) {
-                    break;
-                }
+                error!("Failed to find module for dependency '{dep}' required by {}", module.qualifier.unique());
+                if !prompt_yn("Continue without this dependency?", false) { return false }
             }
         }
 
-        for installed in installed {
-            self.cache.install_module(installed).unwrap_or_else(|e| {
-                error!("Error whilst persisting install: {}", e.to_string());
-            })
-        }
-
-        info!("Finished installing all modules")
+        true
     }
 
-    pub fn remove(&mut self, name: &str) {
-        let modules = self.cache.query_module(name);
-        if modules.is_empty() {
-            error!("Couldn't find installed module for '{name}', make sure one is installed");
+    // Removes all dependencies which are no longer required, important: removed takes modules which are no longer counted as dependencies because they are being removed
+    pub fn free_dependencies(&self, freeable: &Vec<String>, removed: &mut Vec<ModuleQualifier>, new_transactions: &mut Vec<ModuleTransaction>) {
+        for dep in freeable.iter()
+            .flat_map(|s| self.cache.find_providers(s).into_iter())
+            .filter(|i| matches!(i.reason, Dependency)) {
+            if removed.iter().any(|r| *r == dep.module.qualifier) { continue }
+
+            if self.cache.depended_upon(dep, removed).is_none() &&
+                prompt_yn(&format!("The module {} is no longer being depended upon, remove?", dep.module.qualifier.unique()), false){
+
+                removed.push(dep.module.qualifier.clone());
+                new_transactions.push(ModuleTransaction::Remove(dep.clone()));
+                self.free_dependencies(&dep.module.dependencies, removed, new_transactions);
+            }
+        }
+    }
+
+    pub fn install(&mut self, name: &str) {
+        info!("Querying sources...");
+        let modules = self.index.query(name);
+
+        let module = if let Some(m) =
+            Registry::choose_one(&modules, "Which module do you mean?")
+                .and_then(|i| modules.get(i).copied()) { m } else {
+
+            error!("Couldn't find a module under this name, are relevant sources added?");
             return;
+        };
+
+        let mut transactions = vec![];
+
+        if let Some(installed) = self.cache.find_module(&module.qualifier.unique()) {
+            if prompt_yn("This module is already installed, reinstall?", false) {
+                transactions.push(ModuleTransaction::Reinstall(installed.clone(), module.clone()));
+            }
+            else { return; }
+        } else {
+            transactions.push(ModuleTransaction::Install(module.clone(), Manual));
         }
 
-        let index =
-            if modules.len() == 1 { 0 }
-            else { output::prompt_choice("Which module do you want to remove?", &modules.iter()
-                .map(|m| format!("{} ({})", m.module.qualifier.unique(), &m.module.name))
-                .collect(), None) };
 
-        if modules.len() > 1 { println!(); }
-        let module = *modules.get(index).expect("index math went wrong");
-
-        debug!("Checking for dependents");
-        // TODO: Check for dependents
-
-        // Prompt user for confirmation
-        info!("Module scheduled for uninstall: {} ({}-{})",
-            module.module.name.bold(),
-            module.module.qualifier.unique(),
-            module.module.version.dimmed());
-
-        if !output::prompt_yn("Do you want to remove this module now?", true) {
-            error!("Removal canceled by user");
-            return;
-        }
+        info!("Resolving dependencies...");
+        self.resolve_dependencies(module, &mut vec![], &mut transactions);
 
         println!();
 
-        let installer = Installer::new(CheckedShell::new(&self.config));
-        output::start_section(&format!("Removing module '{}' ...", module.module.qualifier.unique()));
-        installer.uninstall(module, &self.cache);
-        output::end_section(true, "Finished removal of module");
+        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)))
+    }
 
-        self.cache.delete_module_cache(&module.module).unwrap_or_else(|e| {
-            debug!("Failed to delete module cache ({}), filesystem may stay polluted", e.to_string());
-        });
-        self.cache.remove_module(&module.module.qualifier.unique());
+    pub fn remove(&mut self, name: &str) {
+        info!("Querying cache...");
+        let modules = self.cache.query_module(name);
 
-        info!("Finished removing module");
+        let module = if let Some(m) = Registry::choose_one(
+            &modules.iter().map(|i| &i.module).collect(),
+            "Which module do you want to remove?")
+            .and_then(|i| modules.get(i).copied()) { m } else {
+
+            error!("Couldn't find installed module for '{name}', is it installed?");
+            return;
+        };
+
+        let mut transactions = vec![ModuleTransaction::Remove(module.clone())];
+
+
+        info!("Checking for dependents...");
+        if let Some(depender) = self.cache.depended_upon(module, &vec![]) {
+            error!("The module {} and possibly others still depend on this module", depender.module.qualifier.unique());
+            if !prompt_yn("Do you want to force removal?", false) {
+                return;
+            }
+        }
+
+
+        info!("Freeing dependencies...");
+        self.free_dependencies(&module.module.dependencies, &mut vec![module.module.qualifier.clone()], &mut transactions);
+
+        println!();
+
+        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)))
     }
 
     pub fn update_all(&mut self) {
-
         info!("Looking for updates...");
-
         let updatable: Vec<(&InstalledModule, Module)> = self.cache.modules.iter().filter_map(|installed| {
 
             if let Some(indexed) = self.index.query(&installed.module.qualifier.unique()).first() {
@@ -221,53 +226,30 @@ impl Registry {
             return;
         }
 
+        let mut transactions = vec![];
 
-        // Prompt user for confirmation
-        println!();
-        info!("Modules scheduled for update:");
-        for (installed, new) in &updatable {
-            println!("   {} ({}-{} -> {}-{})",
-                     installed.module.name.bold(),
-                     installed.module.qualifier.unique(),
-                     installed.module.version.dimmed(),
-                     new.qualifier.unique(),
-                     new.version.dimmed());
+
+        info!("Applying dependency changes and creating transactions...");
+        let mut freed: Vec<ModuleQualifier> = updatable.iter().map(|(_i, m)| m.qualifier.clone()).collect();
+        for (i, m) in &updatable {
+            // Free before everything else so a dependency is not freed directly after install
+            let removed: Vec<String> = i.module.dependencies.iter().filter(|s| !m.dependencies.contains(*s)).cloned().collect();
+            self.free_dependencies(&removed, &mut freed, &mut transactions);
         }
 
-        if !output::prompt_yn("Do you want to update these modules now?", true) {
-            error!("Update cancelled by user");
-            return;
-        }
+        let mut scheduled: Vec<ModuleQualifier> = updatable.iter().map(|(_i, m)| m.qualifier.clone()).collect();
+        for (i, m) in updatable {
 
-        println!();
-
-        let mut results = vec![];
-
-        let installer = Installer::new(CheckedShell::new(&self.config));
-        for (installed, new) in updatable {
-            output::start_section(&format!("Updating module '{}'", installed.module.qualifier.unique()));
-
-            if let Some(module) = installer.update(installed, new, &self.cache) {
-                output::end_section(true, &format!("Updated module '{}'", installed.module.qualifier.unique()));
-
-                results.push((installed.module.qualifier.unique(), Some(module)));
-            } else {
-                output::end_section(false, &format!("Module update failed, '{}' is no longer installed", installed.module.qualifier.unique()));
-
-                results.push((installed.module.qualifier.unique(), None));
+            if !self.resolve_dependencies(&m, &mut scheduled, &mut transactions) {
+                continue;
             }
+
+            transactions.push(ModuleTransaction::Update(i.clone(), m));
         }
 
-        // Persist changes in cache
-        for (old, new) in results {
-            self.cache.remove_module(&old);
+        println!();
 
-            if let Some(new) = new {
-                self.cache.install_module(new).unwrap_or_else(|e| {
-                    error!("Error whilst persisting install: {}", e.to_string());
-                })
-            }
-        }
+        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)));
     }
 
     pub fn list(&self) {

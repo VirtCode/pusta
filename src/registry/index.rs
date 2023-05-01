@@ -80,4 +80,11 @@ impl Index {
             })
             .collect()
     }
+
+    /// Queries the index for modules providing the given provider
+    pub fn providers(&self, provider: &str) -> Vec<&Module> {
+        self.modules.iter()
+            .filter(|m| m.qualifier.does_provide(provider))
+            .collect()
+    }
 }

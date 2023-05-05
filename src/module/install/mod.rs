@@ -18,7 +18,9 @@ use serde_with::{serde_as, TimestampMilliSeconds};
 use serde_with::formats::Flexible;
 use colored::Colorize;
 use crate::module::install::checked::CheckedShell;
+use crate::module::qualifier::ModuleQualifier;
 use crate::output::prompt_yn;
+use crate::registry::index::Indexable;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
@@ -30,6 +32,16 @@ pub struct InstalledModule {
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     pub updated: SystemTime,
     pub reason: InstallReason
+}
+
+impl Indexable for InstalledModule {
+    fn dependencies(&self) -> &Vec<String> {
+        &self.module.dependencies
+    }
+
+    fn qualifier(&self) -> &ModuleQualifier {
+        &self.module.qualifier
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Clone)]

@@ -13,6 +13,7 @@ use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::output;
 use crate::output::end_section;
+use crate::registry::index::Indexable;
 
 pub mod repository;
 pub mod install;
@@ -93,5 +94,15 @@ impl Module {
 
     pub fn up_to_date(&self, new: &Self) -> bool {
         self.checksum == new.checksum
+    }
+}
+
+impl Indexable for Module {
+    fn dependencies(&self) -> &Vec<String> {
+        &self.dependencies
+    }
+
+    fn qualifier(&self) -> &ModuleQualifier {
+        &self.qualifier
     }
 }

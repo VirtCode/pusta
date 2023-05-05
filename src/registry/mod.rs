@@ -1,6 +1,7 @@
-mod index;
+pub mod index;
 pub mod cache;
 mod transaction;
+mod depend;
 
 use std::ops::Deref;
 use std::os::unix::raw::time_t;
@@ -21,11 +22,12 @@ use crate::output;
 use crate::output::{logger, prompt_yn};
 use crate::output::logger::{disable_indent, enable_indent};
 use crate::registry::cache::Cache;
-use crate::registry::index::Index;
+use crate::registry::depend::DependencyResolver;
+use crate::registry::index::{Index, Indexable};
 use crate::registry::transaction::ModuleTransaction;
 
 pub struct Registry {
-    index: Index,
+    index: Index<Module>,
     cache: Cache,
     config: Config
 }
@@ -89,66 +91,12 @@ impl Registry {
         }
     }
 
-    pub fn choose_one(modules: &Vec<&Module>, prompt: &str) -> Option<usize> {
-
-        match modules.len() {
-            0 => None,
-            1 => Some(0usize),
-            _ => {
-                Some(output::prompt_choice(
-                    prompt,
-                    &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(),
-                    None))
-            }
-        }
-    }
-
-    pub fn resolve_dependencies(&self, module: &Module, scheduled_modules: &mut Vec<ModuleQualifier>, new_transactions: &mut Vec<ModuleTransaction>) -> bool {
-        scheduled_modules.push(module.qualifier.clone());
-
-        for dep in &module.dependencies {
-            if self.cache.has_provider(dep) || scheduled_modules.iter().any(|m| m.does_provide(dep)) { continue }
-
-            let providers = self.index.providers(dep);
-            if let Some(m) = Registry::choose_one(
-                &providers,
-                &format!("Multiple modules provide dependency '{dep}' for {}, choose:", module.qualifier.unique())).and_then(|i| providers.get(i).copied()) {
-
-                new_transactions.push(ModuleTransaction::Install(m.clone(), Dependency));
-                self.resolve_dependencies(m, scheduled_modules, new_transactions);
-
-            } else {
-                error!("Failed to find module for dependency '{dep}' required by {}", module.qualifier.unique());
-                if !prompt_yn("Continue without this dependency?", false) { return false }
-            }
-        }
-
-        true
-    }
-
-    // Removes all dependencies which are no longer required, important: removed takes modules which are no longer counted as dependencies because they are being removed
-    pub fn free_dependencies(&self, freeable: &Vec<String>, removed: &mut Vec<ModuleQualifier>, new_transactions: &mut Vec<ModuleTransaction>) {
-        for dep in freeable.iter()
-            .flat_map(|s| self.cache.find_providers(s).into_iter())
-            .filter(|i| matches!(i.reason, Dependency)) {
-            if removed.iter().any(|r| *r == dep.module.qualifier) { continue }
-
-            if self.cache.depended_upon(dep, removed).is_none() &&
-                prompt_yn(&format!("The module {} is no longer being depended upon, remove?", dep.module.qualifier.unique()), false){
-
-                removed.push(dep.module.qualifier.clone());
-                new_transactions.push(ModuleTransaction::Remove(dep.clone()));
-                self.free_dependencies(&dep.module.dependencies, removed, new_transactions);
-            }
-        }
-    }
-
     pub fn install(&mut self, name: &str) {
         info!("Querying sources...");
         let modules = self.index.query(name);
 
         let module = if let Some(m) =
-            Registry::choose_one(&modules, "Which module do you mean?")
+            choose_one(&modules, "Which module do you mean?")
                 .and_then(|i| modules.get(i).copied()) { m } else {
 
             error!("Couldn't find a module under this name, are relevant sources added?");
@@ -168,7 +116,13 @@ impl Registry {
 
 
         info!("Resolving dependencies...");
-        self.resolve_dependencies(module, &mut vec![], &mut transactions);
+        let mut dependencies = DependencyResolver::new(&self.index, &self.cache.index);
+
+        if let Err(e) = dependencies.resolve(module) {
+            error!("{e}");
+            return;
+        }
+        transactions.append(&mut dependencies.create_transactions());
 
         println!();
 
@@ -179,7 +133,7 @@ impl Registry {
         info!("Querying cache...");
         let modules = self.cache.query_module(name);
 
-        let module = if let Some(m) = Registry::choose_one(
+        let module = if let Some(m) = choose_one(
             &modules.iter().map(|i| &i.module).collect(),
             "Which module do you want to remove?")
             .and_then(|i| modules.get(i).copied()) { m } else {
@@ -192,8 +146,10 @@ impl Registry {
 
 
         info!("Checking for dependents...");
-        if let Some(depender) = self.cache.depended_upon(module, &vec![]) {
-            error!("The module {} and possibly others still depend on this module", depender.module.qualifier.unique());
+        let dependents = self.cache.index.dependents(module.qualifier());
+        if !dependents.is_empty() {
+            error!("The module(s) {} may depend on this module",
+                dependents.iter().map(|i| i.qualifier().unique()).collect::<Vec<String>>().join(", "));
             if !prompt_yn("Do you want to force removal?", false) {
                 return;
             }
@@ -201,7 +157,9 @@ impl Registry {
 
 
         info!("Freeing dependencies...");
-        self.free_dependencies(&module.module.dependencies, &mut vec![module.module.qualifier.clone()], &mut transactions);
+        let mut resolver = DependencyResolver::new(&self.index, &self.cache.index);
+        resolver.free(module);
+        transactions.append(&mut resolver.create_transactions());
 
         println!();
 
@@ -210,7 +168,7 @@ impl Registry {
 
     pub fn update_all(&mut self) {
         info!("Looking for updates...");
-        let updatable: Vec<(&InstalledModule, Module)> = self.cache.modules.iter().filter_map(|installed| {
+        let updatable: Vec<(&InstalledModule, Module)> = self.cache.index.modules.iter().filter_map(|installed| {
 
             if let Some(indexed) = self.index.query(&installed.module.qualifier.unique()).first() {
                 if !installed.module.up_to_date(indexed) {
@@ -226,26 +184,26 @@ impl Registry {
             return;
         }
 
-        let mut transactions = vec![];
 
+        info!("Calculating dependency changes...");
+        let mut resolver = DependencyResolver::new(&self.index, &self.cache.index);
 
-        info!("Applying dependency changes and creating transactions...");
-        let mut freed: Vec<ModuleQualifier> = updatable.iter().map(|(_i, m)| m.qualifier.clone()).collect();
         for (i, m) in &updatable {
-            // Free before everything else so a dependency is not freed directly after install
-            let removed: Vec<String> = i.module.dependencies.iter().filter(|s| !m.dependencies.contains(*s)).cloned().collect();
-            self.free_dependencies(&removed, &mut freed, &mut transactions);
-        }
-
-        let mut scheduled: Vec<ModuleQualifier> = updatable.iter().map(|(_i, m)| m.qualifier.clone()).collect();
-        for (i, m) in updatable {
-
-            if !self.resolve_dependencies(&m, &mut scheduled, &mut transactions) {
+            if let Err(e) = resolver.resolve(m) {
+                error!("Skipping update for {}: {e}", m.qualifier().unique());
                 continue;
             }
-
-            transactions.push(ModuleTransaction::Update(i.clone(), m));
+            resolver.free(i);
         }
+
+
+        info!("Creating transactions...");
+        let mut transactions = vec![];
+
+        for (i, m) in updatable {
+            transactions.push(ModuleTransaction::Update(i.clone(), m.clone()));
+        }
+        transactions.append(&mut resolver.create_transactions());
 
         println!();
 
@@ -272,10 +230,10 @@ impl Registry {
         info!("Installed modules:");
         enable_indent();
 
-        if self.cache.modules.is_empty() {
+        if self.cache.index.modules.is_empty() {
             info!("{}", "No modules are currently installed".italic().dimmed())
         } else {
-            for module in &self.cache.modules {
+            for module in &self.cache.index.modules {
                 let naive: DateTime<Local> = module.installed.into();
 
                 let orphaned = if self.index.query(&module.module.qualifier.unique()).is_empty() {
@@ -321,6 +279,18 @@ impl Registry {
             }
         }
     }
+}
 
+fn choose_one(modules: &Vec<&Module>, prompt: &str) -> Option<usize> {
 
+    match modules.len() {
+        0 => None,
+        1 => Some(0usize),
+        _ => {
+            Some(output::prompt_choice(
+                prompt,
+                &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(),
+                None))
+        }
+    }
 }

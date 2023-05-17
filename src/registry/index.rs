@@ -6,11 +6,15 @@ use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 
+/// This trait marks a module struct as indexable. This is used to expose qualifier and dependencies of a module so it can be indexed properly.
 pub trait Indexable {
+    /// Gets the dependencies of the module
     fn dependencies(&self) -> &Vec<String>;
+    /// Gets the qualifier of the module
     fn qualifier(&self) -> &ModuleQualifier;
 }
 
+/// This struct indexes indexables, aka modules, so one can query them in all sorts of manners
 pub struct Index<T> where T: Indexable {
     pub modules: Vec<T>
 }
@@ -44,14 +48,32 @@ impl<T> Index<T> where T: Indexable {
             .collect()
     }
 
-    /// Returns a list of modules which may depend on a given module
-    pub fn dependents(&self, dependency: &ModuleQualifier) -> Vec<&T> {
+    /// Returns a list of modules which MAY depend on a given module.
+    /// The critical dependency of any module returned here MAY also be fulfilled by another module (but doesn't have to).
+    /// For a specific list, see specific_dependents
+    pub fn loose_dependents(&self, dependency: &ModuleQualifier) -> Vec<&T> {
         self.modules.iter()
             .filter(|m| {
                 // Avoid modules that depend on themselves
                 m.qualifier() != dependency &&
 
                 m.dependencies().iter().any(|s| dependency.does_provide(s))
+            })
+            .collect()
+    }
+
+    /// Returns a list of modules which SPECIFICALLY depend on a given module.
+    pub fn specific_dependents(&self, dependency: &ModuleQualifier) -> Vec<&T> {
+        self.modules.iter()
+            .filter(|m| {
+                // Avoid modules that depend on themselves
+                m.qualifier() != dependency &&
+
+                // Check every dependency whether it is provided and there are no other providers
+                m.dependencies().iter().any(|s| {
+                    dependency.does_provide(s) &&
+                    !self.providers(s).iter().any(|m| m.qualifier() != dependency) // Ignore checked dependency
+                })
             })
             .collect()
     }
@@ -68,59 +90,25 @@ impl<T> Index<T> where T: Indexable {
 
         self.modules.push(module);
     }
+
+    /// Adds all modules and replaces duplicates if present
+    pub fn add_all(&mut self, modules: Vec<T>) {
+        for module in modules {
+            self.add(module)
+        }
+    }
     
     /// Removes a module from the index if present
-    pub fn remove(&mut self, qualifier: &ModuleQualifier) {
-        self.modules.retain(|f| f.qualifier() != qualifier);
+    pub fn remove(&mut self, qualifier: &ModuleQualifier) -> Option<T> {
+        self.modules.iter().position(|f| f.qualifier() == qualifier)
+            .map(|pos| self.modules.remove(pos))
     }
 }
 
+/// This provides some special methods only used to interface with the global index
 impl Index<Module> {
-    /// Loads modules from a given repository
-    pub fn load_repository(&mut self, repo: &Repository) -> anyhow::Result<()>{
-        debug!("Loading modules from source repository '{}'", &repo.name);
-
-        let mut modules: Vec<Module> = vec![];
-
-        for entry in fs::read_dir(&repo.location)? {
-            let entry = entry?.path();
-
-            // Is folder
-            if entry.is_dir() {
-                let mut file = entry.clone();
-                file.push(crate::FILE_MODULE);
-
-                // Has module.yml
-                if file.exists() {
-
-                    debug!("Loading module at '{}'", entry.to_string_lossy());
-                    match Module::load(&entry, repo) {
-
-                        Ok(module) => {
-                            if modules.iter().any(|m| m.qualifier.name() == module.qualifier.name()) { return Err(Error::msg(format!("Failed to load modules, name conflict found ('{}')", module.qualifier.name()))) }
-
-                            modules.push(module);
-                        },
-                        Err(e) => {
-                            warn!("Failed to load module (from '{}' at '{}'): {}", repo.name, entry.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default(), e.to_string());
-                        }
-                    }
-                }
-            }
-        }
-
-        // Pass over modules to index
-        self.modules.append(&mut modules);
-
-        Ok(())
-    }
-
     /// Unloads all modules belonging to an added repository
-    pub fn unload_repository(&mut self, repo: &Repository) {
+    pub fn remove_repository(&mut self, repo: &Repository) {
         self.modules.retain(|r| *r.qualifier.repository() != repo.name);
     }
-}
-
-impl Index<InstalledModule> {
-    
 }

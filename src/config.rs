@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
+use crate::registry::cache;
 
 pub const CONFIG_FILE: &str = "~/.config/pusta/config.yml";
 
@@ -15,7 +16,9 @@ pub struct Config {
     pub repositories: ConfigRepository,
     pub security: ConfigSecurity,
     pub log: ConfigLog,
-    pub system: ConfigShell
+    pub system: ConfigShell,
+    #[serde(default = "cache::default_cache_dir")]
+    pub cache_dir: String
 
 }
 
@@ -109,7 +112,8 @@ impl Default for Config {
                 preview_scripts: PreviewStrategy::Ask,
                 confirm_scripts: ConfirmStrategy::Yes,
                 confirm_files: ConfirmStrategy::Root
-            }
+            },
+            cache_dir: cache::default_cache_dir()
         }
     }
 }

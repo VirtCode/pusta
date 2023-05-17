@@ -1,7 +1,10 @@
+use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
 
@@ -36,5 +39,29 @@ impl Repository {
             location: fs::canonicalize(folder)?,
             name
         })
+    }
+
+    pub fn load_modules(&self) -> anyhow::Result<Vec<Module>> {
+        let mut modules = vec![];
+
+        for entry in fs::read_dir(&self.location)? {
+            let entry = entry?.path();
+
+            match Module::try_load(&entry, &self) {
+                Ok(Some(m)) => {
+                    if modules.iter().any(|n: &Module| n.qualifier == m.qualifier) {
+                        warn!("Refused to load {}/'{}', since its qualifier is already taken.", self.name, entry.file_name().map(OsStr::to_string_lossy).unwrap_or(Cow::Borrowed("unknown module")));
+                    }
+
+                    modules.push(m);
+                }
+                Err(e) => {
+                    warn!("Failed to load {}/'{}': {e}", self.name, entry.file_name().map(OsStr::to_string_lossy).unwrap_or(Cow::Borrowed("unknown module")));
+                }
+                _ => {}
+            }
+        }
+
+        Ok(modules)
     }
 }

@@ -4,6 +4,7 @@ use std::io::{stdin, stdout, Write};
 use std::str::FromStr;
 use colored::Colorize;
 use log::{error, info};
+use crate::module::Module;
 use crate::output::logger::{disable_indent, enable_indent};
 
 pub fn prompt_yn(question: &str, default: bool) -> bool {
@@ -39,18 +40,32 @@ pub fn prompt_choice(question: &str, choices: &Vec<String>, default: Option<usiz
             error!("Failed to read from stdin");
             return 0;
         }
-        
+
         // If default, use default
         if default.is_some() && line.is_empty() { return default.unwrap() }
-        
+
         if let Ok(i) = usize::from_str(line.trim()) {
-                      
+
             if i < 1 || i > choices.len() { error!("Please enter a number within range") }
             else {
                 return i - 1;
             }
         } else {
             error!("Please enter a valid number");
+        }
+    }
+}
+
+pub fn prompt_choice_module(modules: &Vec<&Module>, prompt: &str) -> Option<usize> {
+
+    match modules.len() {
+        0 => None,
+        1 => Some(0usize),
+        _ => {
+            Some(prompt_choice(
+                prompt,
+                &modules.iter().map(|m| format!("{} ({})", m.qualifier.unique(), &m.name)).collect(),
+                None))
         }
     }
 }

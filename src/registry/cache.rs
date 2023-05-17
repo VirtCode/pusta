@@ -1,17 +1,29 @@
-use std::fs;
+use std::{env, fs};
+use std::env::VarError;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context};
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
+use crate::config::Config;
 use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::registry::index::Index;
 
+pub const DEFAULT_DIR: &str = "~/.local/state/pusta";
+
 pub const MODULES: &str = "modules.json";
 pub const REPOSITORIES: &str = "repositories.json";
 pub const DATA: &str = "data";
+
+/// Finds the current default cache directory (XDG_STATE_HOME)
+pub fn default_cache_dir() -> String {
+    match env::var("XDG_STATE_HOME") {
+        Ok(s) => { s }
+        Err(_) => { DEFAULT_DIR.to_owned() }
+    }
+}
 
 /// This struct handles the saving of the installation state of the machine
 pub struct Cache {
@@ -23,9 +35,9 @@ pub struct Cache {
 impl Cache {
 
     /// Creates a new cache, without loading anything
-    pub fn new(path: &Path) -> Self {
+    pub fn new(config: &Config) -> Self {
         Cache {
-            folder: path.to_owned(),
+            folder: PathBuf::from(shellexpand::tilde(&config.cache_dir).to_string()),
             index: Index::new(),
             repositories: vec![]
         }
@@ -43,6 +55,12 @@ impl Cache {
         debug!("Reading installed modules");
         let mut path = self.folder.clone();
         path.push(MODULES);
+
+        if !path.exists() {
+            info!("Module cache file does not exist, saving empty state...");
+            fs::create_dir_all(&self.folder)?;
+            self.write_modules()?;
+        }
 
         self.index.modules = File::open(path).map_err(|e| anyhow!(e))
             .and_then(|f| serde_json::from_reader(f).context("Failed to deserialize modules"))
@@ -67,6 +85,12 @@ impl Cache {
         debug!("Reading added source repositories");
         let mut path = self.folder.clone();
         path.push(REPOSITORIES);
+
+        if !path.exists() {
+            info!("Repository cache file does not exist, saving empty state...");
+            fs::create_dir_all(&self.folder)?;
+            self.write_repositories()?;
+        }
 
         self.repositories = File::open(path).map_err(|e| anyhow!(e))
             .and_then(|f| serde_json::from_reader(f).context("Failed to deserialize repositories"))
@@ -115,18 +139,20 @@ impl Cache {
     }
 
     /// Removes a repositories from the added sources
-    pub fn remove_repository(&mut self, name: &str) -> Option<Repository> {
-        let result = self.repositories.iter().position(|r| r.name == name).map(|i| self.repositories.swap_remove(i));
+    pub fn remove_repository(&mut self, name: &str) -> anyhow::Result<Option<Repository>> {
+        let result = self.repositories.iter()
+            .position(|r| r.name == name)
+            .map(|i| self.repositories.swap_remove(i));
 
         if result.is_some() {
-            self.write_repositories();
+            self.write_repositories()?;
         }
         
-        result
+        Ok(result)
     }
 
     /// Finds an added repository by its name
-    pub fn repository(&self, name: &str) -> Option<&Repository> {
+    pub fn get_repository(&self, name: &str) -> Option<&Repository> {
         self.repositories.iter().find(|r| r.name == name)
     }
 
@@ -140,21 +166,6 @@ impl Cache {
         fs::create_dir_all(&path)?;
 
         Ok(path)
-    }
-
-    /// Migrates a module cache from an old one to a new one
-    pub fn migrate_module_cache(&self, old_module: &Module, new_module: &Module) -> anyhow::Result<()> {
-
-        let mut old = self.folder.clone();
-        old.push(DATA);
-        old.push(old_module.qualifier.unique().replace('/', "-"));
-
-        let mut new = self.folder.clone();
-        new.push(DATA);
-        new.push(new_module.qualifier.unique().replace('/', "-"));
-
-        fs::rename(&old, &new)?;
-        Ok(())
     }
 
     /// Removes a module cache folder

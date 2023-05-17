@@ -20,16 +20,9 @@ mod output;
 mod jobs;
 mod registry;
 
-pub const FILE_REPOSITORY: &str = "pusta.yml";
-pub const FILE_MODULE: &str = "module.yml";
-
-pub const CACHE_MODULES: &str = "~/.config/pusta/cache/modules.json";
-pub const CACHE_REPOSITORIES: &str = "~/.config/pusta/cache/repositories.json";
-pub const CACHE: &str = "~/.config/pusta/cache/";
-
 fn main() {
     let command: Command = Command::parse();
-    let mut config = Config::read();
+    let config = Config::read();
 
     logger::enable_logging(config.log.verbose || command.verbose);
 
@@ -38,7 +31,7 @@ fn main() {
     // Load registry
     let mut registry = Registry::new(&config);
     if let Err(e) = registry.load() {
-        error!("Failed to load registry: {}", e.to_string());
+        error!("Failed to load registry: {e:#}");
         exit(-1);
     }
 
@@ -52,32 +45,32 @@ fn main() {
         SubCommand::Source { action } => {
             match action {
                 RepositoryCommand::Add { path,  alias }  => {
-                    let dir = path.map(|p| PathBuf::from(shellexpand::tilde(&p).to_string())).unwrap_or_else(|| env::current_dir().unwrap());
-
-                    registry.add(&dir, alias.as_deref());
+                    let dir = path.map(|p| PathBuf::from(shellexpand::tilde(&p).to_string())).unwrap_or_else(|| env::current_dir().expect("not being run in a directory?!?"));
+                    registry.add_repository(&dir, alias.as_deref());
                 }
                 RepositoryCommand::Remove { alias }  => {
-
-                    registry.unadd(&alias);
+                    registry.remove_repository(&alias);
                 }
             }
         },
         SubCommand::Install { module } => {
-            registry.install(&module);
+            registry.install_module(&module);
         },
         SubCommand::Remove { module } => {
-            registry.remove(&module);
+            registry.uninstall_module(&module);
         },
         SubCommand::List => {
             registry.list();
         },
         SubCommand::Query { module } => {
-            registry.query(&module);
+            registry.query_module(&module);
         },
         SubCommand::Update { module } => {
-            registry.update_all();
+            match module {
+                None => { registry.update_everything() }
+                Some(module) => { registry.update_module(&module) }
+            }
         }
         _ => {}
     }
-
 }

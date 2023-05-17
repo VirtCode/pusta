@@ -1,15 +1,16 @@
 use anyhow::anyhow;
-use log::error;
+use log::{error, info};
 use crate::module::install::{InstalledModule, InstallReason};
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
-use crate::output::prompt_yn;
+use crate::output::{prompt_choice_module, prompt_yn};
 use crate::registry::depend::ChangeType::{Real, Marker};
 use crate::registry::index::{Index, Indexable};
 use crate::registry::Registry;
 use crate::registry::transaction::ModuleTransaction;
 
-/// This struct can resolve and free dependencies for multiple modules and perform them on a module basis, performing rollbacks when needed
+/// This struct can resolve and free dependencies for multiple modules and perform them on a module basis, performing rollbacks when needed.
+/// Warning: understanding the logic implemented here may cause headaches
 pub struct DependencyResolver<'a> {
     available: &'a Index<Module>,
     installed: &'a Index<InstalledModule>,
@@ -20,10 +21,10 @@ pub struct DependencyResolver<'a> {
     current_group: u32
 }
 
-impl DependencyResolver<'_> {
+impl<'a> DependencyResolver<'a> {
 
     /// Starts a new dependency resolver
-    pub fn new(available: &Index<Module>, installed: &Index<InstalledModule>) -> Self {
+    pub fn new(available: &'a Index<Module>, installed: &'a Index<InstalledModule>) -> Self {
         Self {
             available,
             installed,
@@ -47,11 +48,11 @@ impl DependencyResolver<'_> {
         for dep in &module.dependencies {
 
             // Check whether already satisfied
-            if self.dependency_satisfied(&dep) { continue; }
+            if self.dependency_satisfied(dep) { continue; }
 
             // Install dependency to satisfy
             let providers = self.available.providers(&dep);
-            if let Some(m) = Registry::choose_one(
+            if let Some(m) = prompt_choice_module(
                 &providers,
                 &format!("Multiple modules provide dependency '{dep}' for {}, choose:", module.qualifier.unique())).and_then(|i| providers.get(i).copied()) {
 
@@ -70,14 +71,15 @@ impl DependencyResolver<'_> {
         Ok(())
     }
 
-    /// Rolls the dependency changes back for the current dependency g roup
+    /// Rolls the dependency changes back for the last group
+    /// (and only for the last group, arbitrary group rollbacks are not permitted since later groups may depend on them)
     fn rollback(&mut self) {
         self.add.retain(|c| c.group != self.current_group);
         self.remove.retain(|c| c.group != self.current_group);
     }
 
     /// Starts freeing the dependencies used by the given module
-    pub fn free(&mut self, module: &InstalledModule) {
+    pub fn free(&mut self, module: &'a InstalledModule) {
         self.current_group += 1;
         self.remove.push(Change::mark(self.current_group, module));
 
@@ -85,22 +87,27 @@ impl DependencyResolver<'_> {
     }
 
     /// Frees the dependencies used by the given module recursively
-    fn free_module(&mut self, module: &InstalledModule) {
-        // Go through every dependency and its providers that are not already being removed and are installed as a dependency
+    fn free_module(&mut self, module: &'a InstalledModule) {
+        // Go through every dependency and its providers that are installed as a dependency
         for provider in module.module.dependencies.iter().flat_map(|dep| self.installed.providers(dep).into_iter())
-                .filter(|i| !self.remove.iter().any(|f| f.qualifier() == i.qualifier()))
                 .filter(|i| matches!(i.reason, InstallReason::Dependency)) {
+
+            // Continue if already removed
+            if self.remove.iter().any(|f| f.qualifier() == provider.qualifier()) {
+                continue;
+            }
 
             // Are they being depended upon and should remove
             if !self.depended_upon(provider.qualifier()) &&
-                    prompt_yn(&format!("The module {} is no longer being depended upon, remove?", provider.qualifier().unique()), false){
+                    prompt_yn(&format!("The module {} is no longer being depended upon, remove?", provider.qualifier().unique()), true){
 
-                self.remove.push(Change::real(self.current_group, module));
-                self.free_module(module);
+                self.remove.push(Change::real(self.current_group, provider));
+                self.free_module(provider);
             }
         }
     }
 
+    /// Checks whether a dependency is satisfied based on the current state
     fn dependency_satisfied(&self, dep: &str) -> bool {
         // is installed and not being uninstalled
         self.installed.providers(dep).iter().any(|m| !self.remove.iter().any(|f| f.qualifier() == m.qualifier()))||
@@ -108,14 +115,25 @@ impl DependencyResolver<'_> {
         self.add.iter().any(|q| q.qualifier().does_provide(dep))
     }
 
+    /// Checks whether a module is being depended upon
     fn depended_upon(&self, dep: &ModuleQualifier) -> bool {
-        // has installed and
-        self.installed.dependents(dep).iter()
-            // and not being uninstalled
-            .any(|m| !self.remove.iter().any(|f| f.qualifier() == m.qualifier())) ||
-            // TODO: and not having a provider under the other modules
-            // TODO: .any(|m| self.installed.providers().iter().map(|m| m.qualifier()).zip(self.add.iter().map(|q| q.qualifier()))) ||
-        // is being installed
+        // has installed dependent
+        self.installed.loose_dependents(dep).iter()
+            .any(|m| {
+                // and not being uninstalled
+                !self.remove.iter().any(|f| f.qualifier() == m.qualifier()) &&
+
+                // and no one else does provide the same dependency
+                // (need to redo the dependency check as in index, since we now know which are already removed)
+                // see Index#specific_dependents() for the origins of this implementation
+                m.dependencies().iter().any(|s| {
+                    dep.does_provide(s) && // is always true at least once
+                    !self.installed.providers(s).iter()
+                        .filter(|m| !self.remove.iter().any(|c| c.qualifier() == m.qualifier()))
+                        .any(|m| m.qualifier() != dep)
+                })
+            }) ||
+        // dependent is being installed
         self.add.iter().any(|q| q.dependencies().iter().any(|d| dep.does_provide(d)))
     }
 
@@ -158,7 +176,8 @@ enum ChangeType<'a, T: Indexable> {
     Real(&'a T)
 }
 
-impl<T> Change<'_, T> where T: Indexable {
+impl<'a, T> Change<'a, T> where T: Indexable {
+    /// Marks a module as changed, which does not include it in the transactions afterwards
     fn mark(group: u32, module: &T) -> Self {
         Self {
             group,
@@ -166,13 +185,15 @@ impl<T> Change<'_, T> where T: Indexable {
         }
     }
 
-    fn real(group: u32, module: &T) -> Self {
+    /// Sets a module as changed, which will be included in transactions afterwards
+    fn real(group: u32, module: &'a T) -> Self {
         Self {
             group,
             change: Real(module)
         }
     }
 
+    /// Get dependencies of changed module
     fn dependencies(&self) -> &Vec<String> {
         match &self.change {
             Marker(_, deps) => { deps }
@@ -180,6 +201,7 @@ impl<T> Change<'_, T> where T: Indexable {
         }
     }
 
+    /// Get qualifier of changed module
     fn qualifier(&self) -> &ModuleQualifier {
         match &self.change {
             Marker(q, _) => { q }

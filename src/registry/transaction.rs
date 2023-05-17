@@ -4,7 +4,9 @@ use crate::module::install::{InstalledModule, Installer, InstallReason};
 use crate::module::Module;
 use crate::output;
 use crate::registry::cache::Cache;
+use crate::registry::index::Indexable;
 
+/// This enum represents a single action that is done to the current modules
 pub enum ModuleTransaction {
     Install(Module, InstallReason),
     Update(InstalledModule, Module),
@@ -13,6 +15,8 @@ pub enum ModuleTransaction {
 }
 
 impl ModuleTransaction {
+
+    /// Performs the given transactions
     fn perform(self, installer: &Installer, cache: &mut Cache) -> bool {
 
         match self {
@@ -33,13 +37,12 @@ impl ModuleTransaction {
                 output::start_section(&format!("Updating {} ({} -> {})", module.qualifier.unique(), module.version.dimmed(), installed.module.version.dimmed()));
 
                 if let Some(module) = installer.update(&installed, module, cache) {
-                    cache.remove_module(&installed.module.qualifier.unique());
                     cache.install_module(module).unwrap_or_else(|e| error!("Failed to persist update: {e}"));
 
                     output::end_section(true, "Module updated successfully");
                     true
                 } else {
-                    cache.remove_module(&installed.module.qualifier.unique());
+                    cache.remove_module(&installed.qualifier()).unwrap_or_else(|e| error!("Failed to persist removal: {e}"));
 
                     output::end_section(false, "Module update failed, it is no longer installed");
                     false
@@ -49,7 +52,6 @@ impl ModuleTransaction {
                 output::start_section(&format!("Reinstalling {}", module.qualifier.unique()));
 
                 installer.uninstall(&installed, cache);
-                cache.remove_module(&installed.module.qualifier.unique());
 
                 if let Some(m) = installer.install(module, cache, installed.reason.clone()) {
                     cache.install_module(m).unwrap_or_else(|e| error!("Failed to persist reinstall: {e}"));
@@ -57,6 +59,8 @@ impl ModuleTransaction {
                     output::end_section(true, "Module reinstalled successfully");
                     true
                 } else {
+                    cache.remove_module(&installed.qualifier()).unwrap_or_else(|e| error!("Failed to persist failed reinstall: {e}"));
+
                     output::end_section(false, "Module reinstall failed, it is no longer installed");
                     false
                 }
@@ -69,7 +73,7 @@ impl ModuleTransaction {
                 cache.delete_module_cache(&installed.module).unwrap_or_else(|e| {
                     debug!("Failed to delete module cache ({}), filesystem may stay polluted", e.to_string());
                 });
-                cache.remove_module(&installed.module.qualifier.unique());
+                cache.remove_module(&installed.qualifier()).unwrap_or_else(|e| error!("Failed to persist module removal: {e}"));
 
                 output::end_section(true, "Successfully removed module");
                 true
@@ -77,6 +81,8 @@ impl ModuleTransaction {
         }
     }
 
+    /// Produces a string that is shown to the user to indicate the current transaction.
+    /// Example message for installation: Pusta (pusta-0.2)
     fn message(&self) -> String {
         match self {
             ModuleTransaction::Install(m, _) => { format!("{} ({}-{})", m.name.bold(), m.qualifier.unique(), m.version.dimmed()) }
@@ -87,6 +93,7 @@ impl ModuleTransaction {
     }
 }
 
+/// This function executes a number of transactions in a row and also prompts the user in the process.
 pub fn transact(transactions: Vec<ModuleTransaction>, cache: &mut Cache, installer: &Installer) {
     info!("Scheduled module changes:");
     for t in &transactions {

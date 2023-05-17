@@ -6,7 +6,7 @@ use anyhow::{anyhow, Context, Error};
 use chksum::Chksum;
 use chksum::prelude::HashAlgorithm;
 use colored::Colorize;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use crate::jobs::Job;
 use crate::module::qualifier::ModuleQualifier;
@@ -56,27 +56,31 @@ pub struct Module {
 
 impl Module {
 
-    // Loads a module from a directory
-    pub fn load(location: &Path, parent: &Repository) -> anyhow::Result<Self> {
+    pub fn try_load(directory: &Path, parent: &Repository) -> anyhow::Result<Option<Self>> {
+        // Validating directory
+        if !directory.is_dir() { return Ok(None); }
 
-        // Load config file
-        let mut config = location.to_owned();
+        let mut config = directory.to_owned();
         config.push(MODULE_CONFIG);
+
+        if !config.exists() || !config.is_file() { return Ok(None); }
+
+        debug!("Loading module from '{}'", config.to_string_lossy());
+
+        // Reading config
         let config: ModuleConfig = serde_yaml::from_reader(File::open(&config).context("Failed to open config file, does it exist?")?)
             .map_err(|f| anyhow!("Failed to read config file ({})", f.to_string()))?;
 
+        let dependencies: Vec<String> = config.depends.map(|s| s.split(' ').map(str::to_owned).collect()).unwrap_or_default();
+
         // Calculate current checksum
-        let checksum = fs::read_dir(location).context("Failed to read dir for checksum").and_then(|mut f| {
+        let checksum = fs::read_dir(directory).context("Failed to read dir for checksum").and_then(|mut f| {
             f.chksum(HashAlgorithm::SHA1).map(|digest| format!("{:x}", digest)).context("Failed to calculate checksum")
         })?;
 
-        // Read dependencies
-        let dependencies: Vec<String> = config.depends.map(|s| s.split(' ').map(str::to_owned).collect()).unwrap_or_default();
-
-
-        Ok(Self {
-            path: location.to_owned(),
-            qualifier: ModuleQualifier::new(parent.name.clone(), location, config.alias, config.provides),
+        Ok(Some(Self {
+            path: directory.to_owned(),
+            qualifier: ModuleQualifier::new(parent.name.clone(), directory, config.alias, config.provides),
             checksum,
             dependencies,
             name: config.name,
@@ -85,7 +89,7 @@ impl Module {
             version: config.version,
 
             jobs: config.jobs
-        })
+        }))
     }
 
     pub fn equals_jobs(&self, other: &Self) -> bool {

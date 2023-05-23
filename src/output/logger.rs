@@ -90,3 +90,7 @@ pub fn disable_indent() {
         OUT.set_indent(false);
     }
 }
+
+pub fn is_verbose() -> bool {
+    unsafe { OUT.verbose }
+}

@@ -182,20 +182,6 @@ impl Installer {
 
     pub fn update(&self, installed: &InstalledModule, module: Module, cache_handler: &Cache) -> Option<InstalledModule> {
 
-        // Currently not supported:
-        // // Possibly migrate modules qualifier
-        // if installed.module.qualifier != module.qualifier {
-        //     // Check that no cache is overwritten
-        //     if cache_handler.has_module(&module.qualifier.unique()) {
-        //         error!("Cannot migrate module qualifier to one that is already installed ({} -> {})", installed.module.qualifier.unique(), module.qualifier.unique());
-        //         return None;
-        //     }
-        //
-        //     if let Err(e) = cache_handler.migrate_module_cache(&installed.module, &module) {
-        //         warn!("Failed to migrate cache for new module qualifier ({} -> {}), some cache may be overwritten", installed.module.qualifier.unique(), module.qualifier.unique())
-        //     }
-        // }
-
         // Update Jobs
         let env = JobEnvironment {
             shell: &self.shell,

@@ -77,10 +77,15 @@ impl Module {
         let checksum = fs::read_dir(directory).context("Failed to read dir for checksum").and_then(|mut f| {
             f.chksum(HashAlgorithm::SHA1).map(|digest| format!("{:x}", digest)).context("Failed to calculate checksum")
         })?;
+        
+        let qualifier = ModuleQualifier::new(parent.name.clone(), directory, config.alias, config.provides);
+        if !qualifier.legal() {
+            return Err(anyhow!("Module qualifier contains illegal characters"));
+        }
 
         Ok(Some(Self {
             path: directory.to_owned(),
-            qualifier: ModuleQualifier::new(parent.name.clone(), directory, config.alias, config.provides),
+            qualifier,
             checksum,
             dependencies,
             name: config.name,

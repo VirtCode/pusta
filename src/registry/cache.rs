@@ -11,7 +11,8 @@ use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::registry::index::Index;
 
-pub const DEFAULT_DIR: &str = "~/.local/state/pusta";
+pub const DEFAULT_PARENT: &str = "~/.local/state";
+pub const DEFAULT_DIR: &str = "/pusta";
 
 pub const MODULES: &str = "modules.json";
 pub const REPOSITORIES: &str = "repositories.json";
@@ -19,10 +20,12 @@ pub const DATA: &str = "data";
 
 /// Finds the current default cache directory (XDG_STATE_HOME)
 pub fn default_cache_dir() -> String {
-    match env::var("XDG_STATE_HOME") {
+    let parent = match env::var("XDG_STATE_HOME") {
         Ok(s) => { s }
-        Err(_) => { DEFAULT_DIR.to_owned() }
-    }
+        Err(_) => { DEFAULT_PARENT.to_owned() }
+    };
+
+    parent + DEFAULT_DIR
 }
 
 /// This struct handles the saving of the installation state of the machine
@@ -161,7 +164,7 @@ impl Cache {
     pub fn create_module_cache(&self, module: &Module) -> anyhow::Result<PathBuf> {
         let mut path = self.folder.clone();
         path.push(DATA);
-        path.push(module.qualifier.unique().replace('/', "-"));
+        path.push(module.qualifier.unique());
 
         fs::create_dir_all(&path)?;
 

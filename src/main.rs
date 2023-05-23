@@ -22,9 +22,19 @@ mod registry;
 
 fn main() {
     let command: Command = Command::parse();
-    let config = Config::read();
 
-    logger::enable_logging(config.log.verbose || command.verbose);
+    logger::enable_logging(command.verbose);
+
+    debug!("Loading configuration...");
+
+    // Load config
+    let config = match Config::read() {
+        Ok(c) => { c }
+        Err(e) => {
+            error!("Failed to read config: {e:#}");
+            exit(-1);
+        }
+    };
 
     debug!("Loading sources and modules...");
 
@@ -37,7 +47,8 @@ fn main() {
 
     debug!("Loading was successful");
 
-    if config.log.verbose {
+    // Add a padding between loading and action output
+    if logger::is_verbose() {
         println!();
     }
 

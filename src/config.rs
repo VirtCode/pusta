@@ -1,55 +1,117 @@
-use std::fs;
+use std::{env};
 use std::fs::File;
-use std::ops::Not;
-use std::os::unix::fs::chroot;
 use std::path::PathBuf;
-use anyhow::Context;
-use log::{debug, error, info, warn};
+use anyhow::{anyhow, Context};
+use log::{debug};
 use serde::{Deserialize, Serialize};
 use crate::registry::cache;
 
-pub const CONFIG_FILE: &str = "~/.config/pusta/config.yml";
+pub const DEFAULT_PARENT: &str = "~/.config";
+pub const DEFAULT_FILE: &str = "/pusta.yml";
 
-#[derive(Deserialize, Serialize, Clone)]
+/// Finds the current config directory (XDG_CONFIG_HOME)
+pub fn config_file() -> String {
+    let parent = match env::var("XDG_CONFIG_HOME") {
+        Ok(s) => { s }
+        Err(_) => { DEFAULT_PARENT.to_owned() }
+    };
+
+    parent + DEFAULT_FILE
+}
+
+/// This struct contains the main config with default values
+#[derive(Deserialize, Clone)]
 pub struct Config {
-
-    pub repositories: ConfigRepository,
-    pub security: ConfigSecurity,
-    pub log: ConfigLog,
-    pub system: ConfigShell,
     #[serde(default = "cache::default_cache_dir")]
-    pub cache_dir: String
+    pub cache_dir: String,
 
+    #[serde(default)]
+    pub system: ConfigShell,
+
+    #[serde(default)]
+    pub security: ConfigSecurity,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ConfigRepository {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub main: Option<String>,
-    pub strict_qualifying: bool
+impl Config {
+    pub fn read() -> anyhow::Result<Self> {
+        debug!("Reading config file");
+
+        let path = PathBuf::from(shellexpand::tilde(&config_file()).to_string());
+
+        if path.exists() {
+            File::open(&path).map_err(|e| anyhow!(e))
+                .and_then(|f| serde_yaml::from_reader(f).context("Failed to deserialize config"))
+        } else {
+            debug!("Config does not exist, using default values");
+            Ok(Default::default())
+        }
+    }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            cache_dir: cache::default_cache_dir(),
+            system: Default::default(),
+            security: Default::default()
+        }
+    }
+}
+
+
+/// This struct contains configuration about the current system and shell
+#[derive(Deserialize, Clone)]
 pub struct ConfigShell {
+    #[serde(default="ConfigShell::root_elevator_default")]
     pub root_elevator: String,
+    #[serde(default="ConfigShell::root_elevator_default")]
     pub file_previewer: String,
+    #[serde(default)]
     pub package_manager: ConfigPackage
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+impl ConfigShell {
+    /// The default value for the root elevator (sudo, because that is still the most popular, sorry doas)
+    pub fn root_elevator_default() -> String {
+        "sudo %COMMAND%".to_owned()
+    }
+
+    /// The default value for the file previewer (less, because it is a gnu coreutil and thus on (almost) every linux distro)
+    pub fn file_previewer_default() -> String {
+        "less %FILE%".to_owned()
+    }
+}
+
+impl Default for ConfigShell {
+    fn default() -> Self {
+        ConfigShell {
+            root_elevator: ConfigShell::root_elevator_default(),
+            file_previewer: ConfigShell::file_previewer_default(),
+            package_manager: Default::default()
+        }
+    }
+}
+
+/// This struct contains configuration about the package manager, having dummy defaults
+#[derive(Deserialize, Clone)]
 pub struct ConfigPackage {
     pub root: bool,
     pub install: String,
     pub remove: String
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ConfigLog {
-    pub log_files: bool,
-    pub verbose: bool
+impl Default for ConfigPackage {
+    fn default() -> Self {
+        Self {
+            install: "echo \"Package manager is not configured yet\"; exit 1".to_owned(),
+            remove: "echo \"Package manager is not configured yet\"; exit 1".to_owned(),
+            root: false
+        }
+    }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+/// This enum represents a strategy used to confirm changes to the system
+#[derive(Deserialize, Clone)]
 pub enum ConfirmStrategy {
     #[serde(rename="false", alias="false", alias="no", alias="No", alias="False")]
     No,
@@ -59,6 +121,13 @@ pub enum ConfirmStrategy {
     Root
 }
 
+impl Default for ConfirmStrategy {
+    fn default() -> Self {
+        ConfirmStrategy::Root
+    }
+}
+
+/// This enum represents a strategy to determine when to preview a script to execute
 #[derive(Deserialize, Serialize, Clone)]
 pub enum PreviewStrategy {
     #[serde(rename="always", alias="always", alias="Always")]
@@ -73,81 +142,46 @@ pub enum PreviewStrategy {
     AskRoot
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+impl Default for PreviewStrategy {
+    fn default() -> Self {
+        PreviewStrategy::AskRoot
+    }
+}
+
+/// This struct contains guidelines about which actions on the system should be confirmed
+#[derive(Deserialize, Clone)]
 pub struct ConfigSecurity {
-    #[serde(skip_serializing_if = "is_false", default)]
+    #[serde(default)]
     pub extra_confirm_everything: bool,
 
-    pub confirm_packages: bool,
+    #[serde(default)]
     pub preview_scripts: PreviewStrategy,
-    pub confirm_scripts: ConfirmStrategy,
+
+    #[serde(default="ConfigSecurity::confirm_packages_default")]
+    pub confirm_packages: bool,
+    #[serde(default)]
+    pub confirm_execution: ConfirmStrategy,
+    #[serde(default)]
     pub confirm_files: ConfirmStrategy
 }
-fn is_false(value: &bool) -> bool { !*value }
 
+impl ConfigSecurity {
+    /// Default value whether to confirm package installs
+    pub fn confirm_packages_default() -> bool { true }
+}
 
-impl Default for Config {
+impl Default for ConfigSecurity {
     fn default() -> Self {
-        Config {
-            repositories: ConfigRepository {
-                main: None,
-                strict_qualifying: false
-            },
-            log: ConfigLog {
-                log_files: true,
-                verbose: false
-            },
-            system: ConfigShell {
-                root_elevator: "sudo $COMMAND$".to_string(),
-                file_previewer: "less $FILE$".to_string(),
-                package_manager: ConfigPackage {
-                    root: false,
-                    install: "echo 'Installing package $PACKAGE$'".to_string(),
-                    remove: "echo 'Removing package $PACKAGE$'".to_string()
-                }
-            },
-            security: ConfigSecurity {
-                extra_confirm_everything: false,
-                confirm_packages: true,
-                preview_scripts: PreviewStrategy::Ask,
-                confirm_scripts: ConfirmStrategy::Yes,
-                confirm_files: ConfirmStrategy::Root
-            },
-            cache_dir: cache::default_cache_dir()
+        Self {
+            confirm_packages: ConfigSecurity::confirm_packages_default(),
+            extra_confirm_everything: false,
+            preview_scripts: Default::default(),
+            confirm_execution: Default::default(),
+            confirm_files: Default::default()
         }
     }
 }
 
-impl Config {
-    pub fn read() -> Self {
-        debug!("Reading config file");
 
-        if let Ok(c) = {
-            let path = PathBuf::from(shellexpand::tilde(CONFIG_FILE).to_string());
 
-            File::open(&path).map_err(anyhow::Error::new).and_then(|f| serde_yaml::from_reader(f).map_err(anyhow::Error::new)).map_err(|e| {
-                eprintln!("Error occurred: {}", e)
-            })
-        } {
-            c
-        } else {
-            info!("Failed to read config file, creating a new one");
 
-            let c = Self::default();
-            c.write();
-
-            c
-        }
-    }
-
-    pub fn write(&self) {
-        debug!("Writing config file");
-
-        let path = PathBuf::from(shellexpand::tilde(CONFIG_FILE).to_string());
-
-        if let Some(path) = path.parent() { fs::create_dir_all(path).unwrap_or_else(|e| warn!("Failed to create parent directory for config file: {}", e)); }
-
-        File::create(&path).map_err(anyhow::Error::new).and_then(|f| serde_yaml::to_writer(f, self).map_err(anyhow::Error::new)).unwrap_or_else(|e| warn!("Failed to write config to disk: {}", e));
-    }
-
-}

@@ -58,6 +58,12 @@ impl ModuleQualifier {
     pub fn provide(&self) -> &Option<String> {
         &self.provide
     }
+
+    /// Checks the module name and insures that it does not mess with the filesystem during caching
+    pub fn legal(&self) -> bool {
+        let name = self.name();
+        !name.is_empty() && !name.contains('/')
+    }
 }
 
 impl PartialEq for ModuleQualifier {

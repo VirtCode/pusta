@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use anyhow::{Context, Error};
+use anyhow::{anyhow, Context, Error};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
@@ -35,6 +35,10 @@ impl Repository {
             .or_else(|| folder.canonicalize().ok()?.file_name().map(|s| s.to_string_lossy().to_string()))
             .context("Could not find name for repository")?;
 
+        if !legal_name(&name) {
+            return Err(anyhow!("Repository name contains illegal characters"));
+        }
+
         Ok(Repository {
             location: fs::canonicalize(folder)?,
             name
@@ -64,4 +68,9 @@ impl Repository {
 
         Ok(modules)
     }
+}
+
+/// Validates repository name and insures that it does not mess with the filesystem during caching
+fn legal_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains('/')
 }

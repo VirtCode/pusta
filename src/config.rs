@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::registry::cache;
 
 pub const DEFAULT_PARENT: &str = "~/.config";
-pub const DEFAULT_FILE: &str = "/pusta.yml";
+pub const DEFAULT_FILE: &str = "/pusta/config.yml";
 
 /// Finds the current config directory (XDG_CONFIG_HOME)
 pub fn config_file() -> String {

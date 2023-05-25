@@ -303,17 +303,21 @@ impl Registry {
             for module in &self.cache.index.modules {
                 let naive: DateTime<Local> = module.installed.into();
 
-                let orphaned = if self.index.query(&module.module.qualifier.unique()).is_empty() {
-                    format!("-{}", "orphaned".red())
+                let info = if let Some(indexed) = self.index.get(&module.module.qualifier) {
+                    if !module.module.up_to_date(&indexed) {
+                        format!("-{}", "outdated".yellow())
+                    } else {
+                        String::default()
+                    }
                 } else {
-                    String::default()
+                    format!("-{}", "orphaned".red())
                 };
 
                 info!("{} ({}-{}{}) {} {}",
                     module.module.name.bold(),
                     module.module.qualifier.unique(),
                     module.module.version.dimmed(),
-                    orphaned,
+                    info,
                     "at".italic(),
                     naive.format("%x").to_string().italic());
             }

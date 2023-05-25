@@ -1,6 +1,8 @@
 [package]
 name = "pusta"
-version = "0.1.0"
+description = "a dotfiles framework focussing on modularity"
+version = "0.2.0"
+
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +13,7 @@ edition = "2021"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_yaml = "0.9.14"
 serde_json = "1.0.87"
-serde_with = "2.0.1"
+serde_with = "3.0.0"
 typetag = "0.2.3"
 
 # Using these because i am too lazy to implement them myself
@@ -26,8 +28,7 @@ chrono = "0.4.22"
 # CLI and flex
 clap = { version = "4.0.18", features = ["derive"]}
 colored = "2.0.0"
-ansi-escapes = "0.1.1"
 
 # Filesystem
-shellexpand = "2.1.2"
+shellexpand = "3.1.0"
 chksum = "0.1.0-rc5"

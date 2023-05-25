@@ -2,8 +2,6 @@ use colored::Colorize;
 use log::{Level, Log, Metadata, Record};
 use log::LevelFilter::Debug;
 
-pub const LOG_DIR: &str = "~/.config/pusta/log/";
-
 static mut OUT: Output = Output {
     verbose: false,
     indent: false

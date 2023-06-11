@@ -16,7 +16,9 @@ The package job uses the type identifier `package`. The one property of the pack
 - `names` - A list of names of the packages that are installed. Each package name is seperated from the previous with a space.
 
 ## Configuration
-Other than the other jobs, this job always requires custom configuration. As you can guess, pusta needs to know what package manager you like to use. Thus, you first have to set the [package configuration](config#package) in the pusta config file. Also make sure to adjust the root elevator, if your package manager runns as root and you are not using the default (at this time `sudo`).
+Other than the other jobs, this job always requires custom configuration. As you can guess, pusta needs to know what package manager you like to use. Thus, you first have to set the [package manager configuration](config#package-manager) in the pusta config file. Also make sure to adjust the root elevator, if your package manager runs as root.
+
+As a consequence are repositories from different users or systems not always compatible. If they use different packages, which do use different names or have a different selection of packages altogether, the pusta configurations from these two sources may not be compatible. So make sure that you use the same packages as are used in a foreign repository before installing modules from it.
 
 ## Example
 This example job installs three packages at once.

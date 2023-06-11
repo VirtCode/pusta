@@ -19,7 +19,7 @@ pub struct FileJob {
 impl Installable for FileJob {
 
     fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
-        let root = self.link.unwrap_or(false);
+        let root = self.root.unwrap_or(false);
 
         // Get source file
         let mut file = env.module_path.clone();

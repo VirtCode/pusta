@@ -107,12 +107,13 @@ pub fn transact(transactions: Vec<ModuleTransaction>, cache: &mut Cache, install
 
     println!();
 
-    for t in transactions {
+    let len = transactions.len();
+    for (i, t) in transactions.into_iter().enumerate() {
         let result = t.perform(installer, cache);
 
         if !result {
             println!();
-            if !output::prompt_yn("Previous change failed, continue with the other changes?", true) {
+            if i < len - 1 && !output::prompt_yn("Previous change failed, continue with the other changes?", true) {
                 error!("Changes interrupted by the user");
                 return;
             }

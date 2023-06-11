@@ -28,9 +28,9 @@ When installing a module, pusta takes care of the entire installation and setup 
 ## Features
 - **Modular Config:** Your configuration consists of many different, independent modules, allowing you to install different parts of your configuration on different systems. 
 - **Comprehensive Modules:** In addition to managing configuration files, modules can also install required packages and change  system properties, eliminating manual tweaking.
-- **Multiple Sources:** Pusta supports multiple sources for modules, making it easy to borrow a part of the configuration of someone else.
+- **Multiple Sources:** Pusta supports multiple sources for modules, making it easy to borrow a part from the configuration of someone else.
 - **Dependency System:** Similar to regular packages, modules can have dependencies too, insuring that required software from others modules is installed as needed.
-- **Easy Adaptability:** Installing and removing modules is extremely simple, this allows you to change your setup at every time and easily remove unneeded modules, with just one command.
+- **Easy Adaptability:** Installing and removing modules is extremely simple, this allows you to change your setup at any time and easily remove unneeded modules with just one command.
 - **Clear Format:** Every module is defined in the same manner, making it easy for you and others to expand, maintain and understand your configuration.
 
 ## Note

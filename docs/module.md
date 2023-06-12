@@ -1,11 +1,11 @@
 # Modules
 In Pusta, your entire configuration is split up into Modules. 
 
-But what is a module? A module is an independent part of your configuration that is scoped to only one component of your system. Such a component could be a software program, like a terminal emulator or a code editor, it could be an important component like a wayland compositor or a display manager, or it could even be something more crucial like your sound backend or your bootloader, or any independent component of your system you can imagine. So as you can see, you can and should have a module for everything. 
+_But what is a module?_ A module is an independent part of your configuration that is scoped to only one component of your system. Such a component could be a software program, like a terminal emulator or a code editor, it could be an important component like a wayland compositor or a display manager, or it could even be something more crucial like your sound backend or your bootloader, or any independent component of your system you can imagine. So as you can see, you can and should have a module for everything. 
 
-And what does a module contain? Obviously, a module contains all the configuration for the system component it takes care of. But thats not all. Usually, a module also installs its component over the system package manager or something similar. It also contains scripts and commands that need to be executed for your component to be enabled or for it to run correctly. In summary, a module tries to be as exhaustive as possible about all installation, setup and configuration that is nessecary to get that component to the state you'll need it.
+_And what does a module contain?_ Obviously, a module contains all the configuration for the system component it takes care of. But that's not all. Usually, a module also installs its component over the system package manager or something similar. It also contains scripts and commands that need to be executed for your component to be enabled or for it to run correctly. In summary, a module tries to be as exhaustive as possible about all installation, setup and configuration that is necessary to get that component to the state you'll need it.
 
-So what's the benefit of all that? Well, by modularizing your entire configuration, you'll gain a ton of flexiblity. If you have two systems with different needs but want to share parts of your configuration, you can easily install different modules on either machines, while having everything in the same place. Even if you have only one system, it becomes very easy to swap out one of your system components for another and still have the possibility to revert later. It also allows you to borrow configuration from someone else, just download their repository and install the modules you want. In addition, since these modules are exhaustive, your entire system is in one place and setting up a new one becomes very easy.
+_So what's the benefit of all that?_ Well, by modularizing your entire configuration, you'll gain a ton of flexibility. If you have two systems with different needs but want to share parts of your configuration, you can easily install different modules on either machines, while having everything in the same place. Even if you have only one system, it becomes very easy to swap out one of your system components for another and still have the possibility to revert later. It also allows you to borrow configuration from someone else, just download their repository and install the modules you want. In addition, since these modules are exhaustive, your entire system is in one place and setting up a new one becomes very easy.
 
 ## Definition
 To define a new module, head into the base directory of a [repository](repository) and create a new directory. This directory will be the base directory for that module. The name of the directory is, unless otherwise specified, also the alias for the module. So the directory should ideally be the name of the component it is scoped to, or something similar.
@@ -45,7 +45,7 @@ The next category encompasses properties used for dependency resolving and simil
 ```yml
 # module.yml
 
-alias: [string] # optinal - overrides the module alias
+alias: [string] # optional - overrides the module alias
 
 provides: [string] # optional - alternate alias this module provides
 depends: [string1 string2 string3 ...] # optional - dependencies of the module
@@ -66,6 +66,7 @@ jobs: # array of jobs of the module
   - [job2]
   ...
 ```
+- `jobs` - Array containing the jobs that define a modules functionality.
 
 This is the most important part of a module file. Here, in the form of jobs, all changes that a module does to a system are defined. If a module is installed, these jobs will be installed from top to bottom. On removal, they are removed in reverse order. Find out more about jobs at their dedicated [Jobs page](jobs).
 
@@ -74,8 +75,42 @@ Up until now, we have talked about the identifier of a module as an alias. On a 
 
 Because of that, we also have *unique qualifiers*. Unique qualifiers do what their name says, contrary to normal qualifiers, they are unique. They are comprised of their repository alias, a slash, and the normal qualifier of the module. An example for a unique qualifier is `my-repository/my-module`. Internally, pusta always works with the unique qualifier of a module, and will always show the unique one in its output. 
 
-When you work with pusta, you can usually use either of the two types of qualifiers. Normal qualifiers are easier to type and remember, while unique qualifiers can be more precise. Because of the fuzzyness of the normal qualifier, Pusta will prompt you if there are two possible modules with that qualifier.
+When you work with pusta, you can usually use either of the two types of qualifiers. Normal qualifiers are easier to type and remember, while unique qualifiers can be more precise. Because of the fuzziness of the normal qualifier, Pusta will prompt you if there are two possible modules that match your qualifier.
 
-It is also important to note, that since pusta internally resolves the modules by their unique qualifier, changing that can lead to severe consequences. If either the repository or the module alias changes, that module or all the modules of the repository will have a different unique qualifier and thus can no longer be resolved correctly by Pusta. Pusta will then no longer know, whether such a module is installed or not. So be careful when changing aliases, especially the ones of the modules.
+It is also important to note, that since pusta internally resolves the modules by their unique qualifier, changing it can lead to severe consequences. If either the repository or the module alias changes, that module or all the modules of the repository will have a different unique qualifier and thus can no longer be resolved correctly by Pusta. Pusta will then no longer know whether such a module is installed or not. So be careful when changing aliases.
 
-## Installation
+## Workflow
+Pusta makes it really easy to install, update and remove modules. In this regard, it works just like an ordinary package manager, as you can use the `pusta install`, `pusta remove` and `pusta udpate` in your terminal.
+
+Learn more about these commands over on the [Workflow](workflow#modules) page.
+
+## Example
+This example module incorporates three different jobs, has all metadata, and also provides a more general qualifier.
+```yml
+# module.yml
+
+name: hyprland
+description: An automatic tiling wayland compositor with glorious animations
+author: Virt
+version: 0.9
+
+provides: wayland-compositor
+
+jobs:
+  - title: Installing git version of Hyprland
+    job:
+      type: package
+      names: hyprland-git
+
+  - title: Adding startup script for easy access
+    job:
+      type: file
+      file: start.sh
+      location: /usr/bin/de
+      root: true
+
+  - job:
+      type: file
+      file: config.conf
+      location: ~/.config/hypr/hyprland.conf
+```

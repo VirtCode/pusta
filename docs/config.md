@@ -69,6 +69,7 @@ This configuration is by no means a guarantee, even if configured strictly, that
 The following options are to your disposal:
 ```yml
 # config.yml
+
 security: 
   extra_confirm_everything: [boolean] # prompt extra for everything that is being done to the system
 

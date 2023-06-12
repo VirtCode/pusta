@@ -33,6 +33,7 @@ However, there are configuration options which will show the command for review 
 Always be cautious when installing modules from other users and review their modules source before doing so.
 
 ## Example
+In this example, a command is run on installation, which is also undone if the job is uninstalled. It does not show its output during the installation.
 
 ```yml
 # module.yml > jobs

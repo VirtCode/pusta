@@ -22,7 +22,7 @@ security: # subcategory for security specific settings
 - `security` - This subcategory holds options for security specific settings, mainly when Pusta should prompt for manual confirmation. Learn more in the [Security](#security) section.
 
 ## Environment
-This subcategory holds option which are related to your system configuration and the programs you want pusta to use. Contrary to the title of this section, these options are under the `system` attribute. The following attributes can be changed:
+This subcategory holds options which are related to your system configuration and the programs you want pusta to use. Contrary to the title of this section, these options are under the `system` attribute. The following attributes can be changed:
 ```yml
 # config.yml
 

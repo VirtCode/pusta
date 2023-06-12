@@ -9,9 +9,10 @@ Jobs are defined under the `jobs` attribute in a `module.yml` file. This attribu
 # module.yml
 
 jobs:
-  - [job 1]
-  - [job 2]
-  - [job 3]
+  - [job1]
+  - [job2]
+  - [job3]
+  ...
 ```
 
 Upon installation, these Jobs are executed from top to bottom. So put a Job that depends on another after that dependency. When the installation of a job fails, the whole installation is cancelled. In this case, the previous installed jobs are being uninstalled in reverse order. 
@@ -20,14 +21,16 @@ Upon installation, these Jobs are executed from top to bottom. So put a Job that
 The definition of a Job comprises two parts, a general part, which are properties which are present on every job, and specific properties which depend on the job type. In general, a job supports the following properties.
 
 ```yml
-# General Properties
-title: [string] # optional - title displayed on installation
-optional: [boolean] # optional - set the job to be optional
+# module.yml > jobs
 
-job:
+# General Properties
+- title: [string] # optional - title displayed on installation
+  optional: [boolean] # optional - set the job to be optional
+
+  job:
   
-  # Specific Properties
-  type: [job-type]
+    # Specific Properties
+    type: [job-type]
 ```
 
 The general properties which are job type independent are:

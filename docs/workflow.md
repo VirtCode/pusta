@@ -1,6 +1,8 @@
 # Workflow
 This page revolves around your workflow you'll have when working with pusta. This includes the most used commands, those for installing and removing modules and repositories. From experience, the most used command will be the update command.
 
+> Note that Pusta is designed to be used in userspace (although it can totally be used to modify things outside of it). Because of that **never run Pusta as root**. Pusta will automatically elevate to root privileges if needed.
+
 ## Repositories
 When working with repositories, you'll frequently (or at least once) have to add and possibly remove a repository to and from Pusta. This is generally done over the subcommand `pusta source`, since repositories are the sources of your modules.
 

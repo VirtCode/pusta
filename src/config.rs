@@ -64,7 +64,7 @@ impl Default for Config {
 pub struct ConfigShell {
     #[serde(default="ConfigShell::root_elevator_default")]
     pub root_elevator: String,
-    #[serde(default="ConfigShell::root_elevator_default")]
+    #[serde(default="ConfigShell::file_previewer_default")]
     pub file_previewer: String,
     #[serde(default)]
     pub package_manager: ConfigPackage

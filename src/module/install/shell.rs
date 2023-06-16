@@ -6,9 +6,9 @@ use log::{debug, info, warn};
 use crate::config::{Config, ConfigSecurity, ConfigShell};
 use crate::output;
 
-const ROOT_COMMAND_KEY: &str = "$COMMAND$";
-const PACKAGE_COMMAND_KEY: &str = "$PACKAGE$";
-const FILE_PREVIEW_KEY: &str = "$FILE$";
+const ROOT_COMMAND_KEY: &str = "%COMMAND%";
+const PACKAGE_COMMAND_KEY: &str = "%PACKAGE%";
+const FILE_PREVIEW_KEY: &str = "%FILE%";
 
 pub struct Shell {
     shell_config: ConfigShell,

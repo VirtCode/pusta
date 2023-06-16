@@ -1,0 +1,25 @@
+name: Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Use nightly toolchain
+        run: rustup update nightly && rustup default nightly
+
+      - name: Build with cargo
+        run: cargo build --verbose --release
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: pusta-nightly-${{ github.sha }}
+          path: target/release/pusta

@@ -27,7 +27,7 @@ When installing a module, pusta takes care of the entire installation and setup 
 
 ## Features
 - **Modular Config:** Your configuration consists of many different, independent modules, allowing you to install different parts of your configuration on different systems. 
-- **Comprehensive Modules:** In addition to managing configuration files, modules can also install required packages and change  system properties, eliminating manual tweaking.
+- **Comprehensive Modules:** In addition to managing configuration files, modules can also install required packages and change system properties, eliminating manual tweaking.
 - **Multiple Sources:** Pusta supports multiple sources for modules, making it easy to borrow a part from the configuration of someone else.
 - **Dependency System:** Similar to regular packages, modules can have dependencies too, insuring that required software from others modules is installed as needed.
 - **Easy Adaptability:** Installing and removing modules is extremely simple, this allows you to change your setup at any time and easily remove unneeded modules with just one command.
@@ -38,19 +38,19 @@ This project is still in early development. The feature set is far from complete
 
 If you encounter any bugs or otherwise unexpected behaviour, please report them on the [issue tracker](../../issues). This helps a lot.
 
-This is only the beginning. A load of features are already planned and being implemented. Have a look at the _roadmap in the future_ for a quick overview. If you have any ideas or feature requests, don't hesitate to let me know.
+This is only the beginning. A load of features are already planned and being implemented. Have a look at the _roadmap in the future_ for a quick overview. If you have any ideas or feature requests, don't hesitate to post a feature request.
 
 ## Install
 Currently, the only way to compile pusta is to compile it from source yourself. To do that, make sure you have the rust toolchain and ```cargo``` installed and clone this repository. Head into the cloned directory and run 
 ```sh
 cargo install
 ```
-to build a release binary and install it on your system. Now, ```pusta``` should be in your path and you can start using it.
+to build a release binary and install it on your system. Now, ```pusta``` should be in your path, and you can start using it.
 
 Have a look at the [Getting Started](../../wiki/getting-started) page on the wiki, to get to know pusta. Resources about configuring and using pusta, as well as on structuring your dotfiles, can also be found over there.
 
 ## Contributing
-Feel free to contribute. Resources for contributors will be added here in the future.
+You are very welcome to contribute. Refer to the [issues page](../../issues) for more guidance.
 
 ## License
-A license will be added soon.
+This project is licensed under the MIT License. Read more at the [license](LICENSE.txt) file.

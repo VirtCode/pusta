@@ -1,0 +1,25 @@
+name: Docs
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: ["docs/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      # yes this is very obscure but the only I could find
+      - name: Build and Publish to wiki
+        uses: cmbrose/github-docs-to-wiki@v0.24
+        with:
+          githubToken: ${{ github.token }}
+          rootDocsFolder: "docs"
+          useHeaderForWikiName: true
+          customCommitMessageFormat: "sync: documentation from {shaShort}"

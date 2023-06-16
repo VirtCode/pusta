@@ -28,7 +28,7 @@ The command job uses `command` as its type identifier. All properties are listed
 ## Security
 With the command job, arbitrary things can be executed on your system. This is especially important, when installing modules from repositories of other users. Pusta does not guarantee anything about the safety of a module when executing. 
 
-However, there are configuration options which will show the command for review before execution. You can find those under the [security configuration](config#security). By default, pusta will only do that, when the command will execute as root.
+However, there are configuration options which will show the command for review before execution. You can find those under the [security configuration](../../custom/config.md#security). By default, pusta will only do that, when the command will execute as root.
 
 Always be cautious when installing modules from other users and review their modules source before doing so.
 

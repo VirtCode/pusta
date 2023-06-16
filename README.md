@@ -13,7 +13,7 @@
 
   ---
   
-  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues) &ensp; • &ensp; [Roadmap](../../wiki/roadmap)
+  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues) &ensp; • &ensp; Roadmap
 
   ---
 </div>
@@ -38,7 +38,7 @@ This project is still in early development. The feature set is far from complete
 
 If you encounter any bugs or otherwise unexpected behaviour, please report them on the [issue tracker](../../issues). This helps a lot.
 
-This is only the beginning. A load of features are already planned and being implemented. Have a look at the [roadmap](../../wiki/roadmap) for a quick overview. If you have any ideas or feature requests, don't hesitate to let me know.
+This is only the beginning. A load of features are already planned and being implemented. Have a look at the _roadmap in the future_ for a quick overview. If you have any ideas or feature requests, don't hesitate to let me know.
 
 ## Install
 Currently, the only way to compile pusta is to compile it from source yourself. To do that, make sure you have the rust toolchain and ```cargo``` installed and clone this repository. Head into the cloned directory and run 
@@ -47,7 +47,7 @@ cargo install
 ```
 to build a release binary and install it on your system. Now, ```pusta``` should be in your path and you can start using it.
 
-Have a look at the [Getting Started](../../wiki/start) page on the wiki, to get to know pusta. Resources about configuring and using pusta, as well as on structuring your dotfiles, can also be found over there.
+Have a look at the [Getting Started](../../wiki/getting-started) page on the wiki, to get to know pusta. Resources about configuring and using pusta, as well as on structuring your dotfiles, can also be found over there.
 
 ## Contributing
 Feel free to contribute. Resources for contributors will be added here in the future.

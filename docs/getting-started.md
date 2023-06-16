@@ -1,10 +1,10 @@
 # Getting Started
-On this page, we'll be running through the creation and installation of your first module, and explaining relevant mechanisms on the go.
+On this page, we'll be running through the creation and installation of your first module. On the go, you'll also learn a thing or two about each feature and other mechanisms which may be relevant to you when using pusta in a bigger scale.
 
 ## System Setup
-To use Pusta conveniently, its executable should be available in your path, so you can easily run it from the terminal. If you haven't done that already, take a look back at the [readme] for installation instructions. 
+To use Pusta conveniently, its executable should be available in your path, so you can easily run it from the terminal. If you haven't done that already, take a look back at the [readme](../#installation) for installation instructions. 
 
-To adapt Pusta to your needs and your system, you can configure it over its config file. However, pusta ships with some defaults, which are sufficient for this example. But definetly have a look at the page about [Configuration] after this introduction.
+To adapt Pusta to your needs and your system, you can configure it over its config file. However, pusta ships with some defaults, which are sufficient for this example. But definitely have a look at the page about [Configuration](custom/config.md) after this introduction.
 
 ## Creating your Repository
 As you know from reading the readme, Pusta works with your configuration as modules - we'll take a look at those later. Anyway, multiple **modules are typically arranged together in repositories**. These repositories are then added to Pusta so you can install modules form them. So the first step is to create a new repository.
@@ -141,10 +141,10 @@ Great! You now know the basics about creating and updating your configuration wi
 Now go on and create your configuration or port your existing one to Pusta. Have fun! If you notice any bugs or have a feature request, don't hesitate to post an Issue.
 
 Here are a few topics which may now be relevant to you:
-- See how to [configure] Pusta to work with your system.
-- Have a look at the [package job], which installs system packages.
-- Learn how to set the [script] or [file] job to operate with root privileges. 
-- Create relationships between modules in the form of [dependencies].
+- See how to [configure](custom/config.md) Pusta to work with your system.
+- Have a look at the [package job](structure/jobs/package.md), which installs system packages.
+- Learn how to set the [script](structure/jobs/script.md#definition-and-properties) or [file](structure/jobs/file.md#definition-and-properties) job to operate with root privileges. 
+- Create relationships between modules in the form of [dependencies](structure/dependencies.md).
 
 And yes, before we forget it, you won't need the `welcome` configuration anymore. To remove it, just run:
 

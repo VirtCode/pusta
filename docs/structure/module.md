@@ -8,7 +8,7 @@ _And what does a module contain?_ Obviously, a module contains all the configura
 _So what's the benefit of all that?_ Well, by modularizing your entire configuration, you'll gain a ton of flexibility. If you have two systems with different needs but want to share parts of your configuration, you can easily install different modules on either machines, while having everything in the same place. Even if you have only one system, it becomes very easy to swap out one of your system components for another and still have the possibility to revert later. It also allows you to borrow configuration from someone else, just download their repository and install the modules you want. In addition, since these modules are exhaustive, your entire system is in one place and setting up a new one becomes very easy.
 
 ## Definition
-To define a new module, head into the base directory of a [repository](repository) and create a new directory. This directory will be the base directory for that module. The name of the directory is, unless otherwise specified, also the alias for the module. So the directory should ideally be the name of the component it is scoped to, or something similar.
+To define a new module, head into the base directory of a [repository](repository.md) and create a new directory. This directory will be the base directory for that module. The name of the directory is, unless otherwise specified, also the alias for the module. So the directory should ideally be the name of the component it is scoped to, or something similar.
 
 Inside that directory, create the module file `module.yml`. Inside this file, the properties and behaviour of that module is defined. This file is what actually defines that module, see its properties under the [Properties section](#properties). 
 
@@ -55,7 +55,7 @@ depends: [string1 string2 string3 ...] # optional - dependencies of the module
 - `provides` (optional) - Set another alias which this module provides. This is a common practice also found in package managers and similar software. It allows for multiple modules providing the same alias without conflicts, and allows other modules to depend on any of those.
 - `depends` (optional) - Set other modules as dependencies, which are installed alongside this module if it is installed.
 
-For more information about the dependency system, visit the [Dependencies page](dependencies).
+For more information about the dependency system, visit the [Dependencies page](dependencies.md).
 
 The last category is simply the jobs array. Here the jobs are defined.
 ```yml
@@ -68,7 +68,7 @@ jobs: # array of jobs of the module
 ```
 - `jobs` - Array containing the jobs that define a modules functionality.
 
-This is the most important part of a module file. Here, in the form of jobs, all changes that a module does to a system are defined. If a module is installed, these jobs will be installed from top to bottom. On removal, they are removed in reverse order. Find out more about jobs at their dedicated [Jobs page](jobs).
+This is the most important part of a module file. Here, in the form of jobs, all changes that a module does to a system are defined. If a module is installed, these jobs will be installed from top to bottom. On removal, they are removed in reverse order. Find out more about jobs at their dedicated [Jobs page](jobs.md).
 
 ## Qualifiers
 Up until now, we have talked about the identifier of a module as an alias. On a more technical level, you would call such an alias an ordinary *qualifier*. Ordinary qualifiers are just one word, and are simple to remember and easy to work with. An example for such a qualifier would simply be `my-module`. The problem is though, that they are not unique. In a real scenario, a qualifier can match multiple different modules, since each different repository can have a module of the same alias.
@@ -82,7 +82,7 @@ It is also important to note, that since pusta internally resolves the modules b
 ## Workflow
 Pusta makes it really easy to install, update and remove modules. In this regard, it works just like an ordinary package manager, as you can use the `pusta install`, `pusta remove` and `pusta udpate` in your terminal.
 
-Learn more about these commands over on the [Workflow](workflow#modules) page.
+Learn more about these commands over on the [Workflow](../working/workflow.md#modules) page.
 
 ## Example
 This example module incorporates three different jobs, has all metadata, and also provides a more general qualifier.

@@ -25,7 +25,7 @@ pusta source remove [alias]
 - `alias` - Alias of the repository to remove. Keep in mind that most of the time the alias does not correspond to the directory name of the repository.
 
 ## Modules
-The commands you'll use the most often will be to interact with your modules. Because of that, each action has a dedicated subcommand. Most of these commands operate using module qualifiers, supporting both normal and unique qualifiers. Find more about what the difference is on the [Modules](module#qualifiers) page.
+The commands you'll use the most often will be to interact with your modules. Because of that, each action has a dedicated subcommand. Most of these commands operate using module qualifiers, supporting both normal and unique qualifiers. Find more about what the difference is on the [Modules](../structure/module.md#qualifiers) page.
 
 ### Installing
 To install a module, use the `install` command.

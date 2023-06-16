@@ -17,7 +17,7 @@ system: # subcategory for your system environment
 security: # subcategory for security specific settings
 ```
 
-- `cache_dir` - Pusta stores its state (which modules are installed, and so on) in the directory set here. By default this is at `$XDG_STATE_HOME/pusta` or `~/.local/state/pusta`. It is not recommended to change this option, since you'll also have to move the cache to your new directory, or otherwise pusta won't know what you have installed. Note that "cache" is not at all a good description for the content of this directory - it can't just be deleted without any consequences.
+- `cache_dir` - Pusta stores its state (which modules are installed, and so on) in the directory set here. By default this is at `$XDG_STATE_HOME/pusta` or `~/.local/state/pusta`. It is not recommended to change this option, since you'll also have to move the cache to your new directory, or otherwise pusta won't know what you have installed. **Note that "cache" is not at all a good description for the content of this directory - it can't just be deleted without any consequences.**
 - `system` - This subcategory holds options for your system environment, learn more in the [Environment](#environment) section.
 - `security` - This subcategory holds options for security specific settings, mainly when Pusta should prompt for manual confirmation. Learn more in the [Security](#security) section.
 
@@ -96,7 +96,7 @@ As an example, here is a config file with a few options changed. You can see how
 
 system:
   package_manager:
-    root: false
+    root: true
     install: pacman -S %PACKAGE%
     remove: pacman -Rs %PACKAGE%
     

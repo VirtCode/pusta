@@ -41,6 +41,6 @@ This module depends on the just specified dependency over that dependencies prov
 ```yml
 # module.yml
 
-alias: custom-greeter # written in rust
+alias: custom-greeter # compiled from source and written in rust
 depends: rust greetd
 ```

@@ -43,10 +43,10 @@ Specific Properties are different for every job, based on its job type. Specific
 
 ## Types
 As mentioned, there are different types of jobs which do different things. Of which type a job is, is specified as seen by the specific `type` property. Each type does have a different function and thus requires different specific properties. Currently the job types include:
-- [`file`](file) - Copies a file from the module to a specific location
-- [`package`](package) - Installs a specific package on the system using the configured package manager
-- [`script`](script) - Executes a script from the module on installation
-- [`command`](command) - Runs a custom command upon installation
+- [`file`](jobs/file.md) - Copies a file from the module to a specific location
+- [`package`](jobs/package.md) - Installs a specific package on the system using the configured package manager
+- [`script`](jobs/script.md) - Executes a script from the module on installation
+- [`command`](jobs/command.md) - Runs a custom command upon installation
 
 ## Example
 In this example we download and install a rust toolchain. First we install a package and give it a more descriptive title. Afterward, we install a toolchain, also give that a title, and set that to optional, since this step is not mandatory.

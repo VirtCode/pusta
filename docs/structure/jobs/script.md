@@ -1,7 +1,7 @@
 # Script Job
 The `script` job is the most versatile job of them all. With it, you can run a custom script when installing, making it very powerful.
 
-The script job is very similar to its sibling, the [`command` job](package.md).
+The script job is very similar to its sibling, the [`command` job](command.md).
 
 ## Definition and Properties
 The script job uses `script` as its type identifier. All properties are listed here:
@@ -28,7 +28,7 @@ The script job uses `script` as its type identifier. All properties are listed h
 ## Security
 As with the command job, the script job can execute arbitrary scripts, which can do anything on your system. This is especially important, when installing modules from repositories of other users. Pusta does not guarantee anything about the safety of a module when executing.
 
-However, there are configuration options which will show the script for review before execution. You can find those under the [security configuration](config#security). By default, pusta will only do that, when the script will be run as root.
+However, there are configuration options which will show the script for review before execution. You can find those under the [security configuration](../../custom/config.md#security). By default, pusta will only do that, when the script will be run as root.
 
 Always be cautious when installing modules from other users and review their modules source before doing so.
 

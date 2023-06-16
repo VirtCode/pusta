@@ -4,9 +4,7 @@ on:
   push:
     branches: [ "main" ]
     paths: ["docs/**", ".github/workflows/docs.yml"]
-
-permissions:
-  contents: write
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -19,7 +17,7 @@ jobs:
       - name: Build and Publish to wiki
         uses: cmbrose/github-docs-to-wiki@v0.24
         with:
-          githubToken: ${{ github.token }}
+          githubToken: ${{ secrets.WIKI_TOKEN }}
           rootDocsFolder: "docs"
           useHeaderForWikiName: true
           customCommitMessageFormat: "sync: documentation from {shaShort}"

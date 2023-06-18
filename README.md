@@ -13,7 +13,7 @@
 
   ---
   
-  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues) &ensp; • &ensp; Roadmap
+  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues) &ensp; • &ensp; [Roadmap](../../../../users/VirtCode/projects/2)
 
   ---
 </div>
@@ -38,7 +38,7 @@ This project is still in early development. The feature set is far from complete
 
 If you encounter any bugs or otherwise unexpected behaviour, please report them on the [issue tracker](../../issues). This helps a lot.
 
-This is only the beginning. A load of features are already planned and being implemented. Have a look at the _roadmap in the future_ for a quick overview. If you have any ideas or feature requests, don't hesitate to post a feature request.
+This is only the beginning. A load of features are already planned and being implemented. Have a look at the [Projects page](../../../../users/VirtCode/projects/2) for a quick overview. If you have any ideas or feature requests, don't hesitate to post a feature request.
 
 ## Install
 Currently, the only way to compile pusta is to compile it from source yourself. To do that, make sure you have the rust toolchain and ```cargo``` installed and clone this repository. Head into the cloned directory and run 

@@ -1,8 +1,8 @@
 use std::fmt::format;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use anyhow::{Context, Error};
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 
@@ -33,13 +33,16 @@ impl Installable for FileJob {
             // There is already a file at the target location
             info!("Caching and removing current file");
             writer.cache.cache_foreign(&target, "original");
-            env.shell.remove(&target, root).context("Failed to remove original file to replace")?;
+            env.shell.remove(&target, root, None).context("Failed to remove original file to replace")?;
 
         } else if let Some(path) = target.parent() {
-            if !path.exists() {
+            if path.file_name().is_none() {
+                // Do nothing, is a relative path to running directory
+                // See https://github.com/rust-lang/rust/issues/36861
+            } else if !path.exists() {
                 // Parent dir does not yet exist
                 info!("Making parent directory");
-                env.shell.make_dir(path, root).context("Failed to make parent directories")?;
+                env.shell.make_dir(path, root, None).context("Failed to make parent directories")?;
 
             } else if !path.is_dir() {
                 // Parent dir is not a file
@@ -50,11 +53,11 @@ impl Installable for FileJob {
         // Link or Copy file
         if self.link.unwrap_or(false) {
             info!("Linking file to target location");
-            env.shell.link(&file, &target, root).context("Failed to create symlink")?;
+            env.shell.link(&file, &target, root, None).context("Failed to create symlink")?;
         } else {
             // TODO: process variables
             info!("Copying file to target location");
-            env.shell.copy(&file, &target, root).context("Failed to copy file")?;
+            env.shell.copy(&file, &target, root, None).context("Failed to copy file")?;
         }
 
         // Mark used file as resource
@@ -73,12 +76,12 @@ impl Installable for FileJob {
 
         // Remove managed file
         info!("Removing file at target location");
-        env.shell.remove(&target, self.root.unwrap_or(false)).context("Failed to remove installed file")?;
+        env.shell.remove(&target, self.root.unwrap_or(false), None).context("Failed to remove installed file")?;
 
         if let Some(original) = reader.cache.retrieve("original") {
             // Restore original file
             info!("Restoring original file");
-            env.shell.copy(&original, &target, self.root.unwrap_or(false)).context("Failed to restore original file")?;
+            env.shell.copy(&original, &target, self.root.unwrap_or(false), None).context("Failed to restore original file")?;
         }
 
         Ok(())

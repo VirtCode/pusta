@@ -33,7 +33,7 @@ impl CheckedShell {
         if run { Ok(()) } else { Err(anyhow!("User denied script execution")) }
     }
 
-    fn check_script(&self, root: bool, script: &Path) -> anyhow::Result<()> {
+    fn check_script(&self, root: bool, script: &Path, running_directory: Option<&Path>) -> anyhow::Result<()> {
 
         let preview = match &self.security.preview_scripts {
             PreviewStrategy::Always => { true }
@@ -61,7 +61,7 @@ impl CheckedShell {
         };
 
         if preview {
-            self.unchecked.preview(script).unwrap_or_else(|e| error!("Failed to preview script '{}', {e}", script.to_string_lossy()))
+            self.unchecked.preview(script, running_directory).unwrap_or_else(|e| error!("Failed to preview script '{}', {e}", script.to_string_lossy()))
         }
 
         // If previewed, a prompt will follow automatically
@@ -122,40 +122,39 @@ impl CheckedShell {
         result
     }
 
-    pub fn make_dir(&self, path: &Path, root: bool) -> anyhow::Result<()> {
+    pub fn make_dir(&self, path: &Path, root: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
         self.check_file(root, &format!("make the directory '{}'", path.to_string_lossy()))?;
-        self.unchecked.make_dir(path, root)
+        self.unchecked.make_dir(path, root, running_directory)
     }
 
-    pub fn remove(&self, path: &Path, root: bool) -> anyhow::Result<()> {
+    pub fn remove(&self, path: &Path, root: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
         self.check_file(root, &format!("delete the file '{}'", path.to_string_lossy()))?;
-        self.unchecked.remove(path, root)
+        self.unchecked.remove(path, root, running_directory)
     }
 
-    pub fn copy(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
+    pub fn copy(&self, source: &Path, destination: &Path, root: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
         self.check_file(root, &format!("copy the file from '{}' to '{}'", source.to_string_lossy(), destination.to_string_lossy()))?;
-        self.unchecked.copy(source, destination, root)
+        self.unchecked.copy(source, destination, root, running_directory)
     }
 
-    pub fn link(&self, source: &Path, destination: &Path, root: bool) -> anyhow::Result<()> {
+    pub fn link(&self, source: &Path, destination: &Path, root: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
         self.check_file(root, &format!("symlink the file from '{}' to '{}'", source.to_string_lossy(), destination.to_string_lossy()))?;
-        self.unchecked.link(source, destination, root)
+        self.unchecked.link(source, destination, root, running_directory)
     }
 
-    pub fn make_executable(&self, path: &Path, root: bool) -> anyhow::Result<()> {
+    pub fn make_executable(&self, path: &Path, root: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
         self.check_file(root, &format!("make the file '{}' executable", path.to_string_lossy()))?;
-        self.unchecked.make_executable(path, root)
+        self.unchecked.make_executable(path, root, running_directory)
     }
 
-    pub fn run_script(&self, path: &Path, root: bool, output: bool) -> anyhow::Result<()> {
-        let path = path.canonicalize()?;
-        self.check_script(root, &path)?;
+    pub fn run_script(&self, path: &Path, root: bool, output: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
+        self.check_script(root, &path, running_directory)?;
 
         if output {
             output::start_shell(&format!("Running script '{}'", path.to_string_lossy()));
         }
 
-        let result = self.unchecked.run(&path.to_string_lossy(), root, output);
+        let result = self.unchecked.run(&path.to_string_lossy(), root, output, running_directory);
 
         if output {
             output::end_shell("Script finished running");
@@ -164,14 +163,14 @@ impl CheckedShell {
         result
     }
 
-    pub fn run_command(&self, command: &str, root: bool, output: bool) -> anyhow::Result<()> {
+    pub fn run_command(&self, command: &str, root: bool, output: bool, running_directory: Option<&Path>) -> anyhow::Result<()> {
         self.check_command(root, command)?;
 
         if output {
             output::start_shell(&format!("Running command '{command}'"));
         }
 
-        let result = self.unchecked.run(command, root, output);
+        let result = self.unchecked.run(command, root, output, running_directory);
 
         if output {
             output::end_shell("Command finished running");

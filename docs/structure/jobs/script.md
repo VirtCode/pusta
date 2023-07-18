@@ -17,6 +17,7 @@ The script job uses `script` as its type identifier. All properties are listed h
     reinstall: [boolean] # optional - reinstall instead of update
     show_output: [boolean] # optional - show the output during installation
     root: [boolean] # optional - run the scripts as root
+    running_directory: [path] # optional - directory where the script is run
 ```
 
 - `install` - A filename of the script in the module directory to run when installing.
@@ -24,6 +25,7 @@ The script job uses `script` as its type identifier. All properties are listed h
 - `reinstall` (optional) - If true, a reinstall is performed if the job is updated. This means, that the uninstall script is run and the install script again when updating. Otherwise and by default, only the install script will be run again on an update.
 - `show_output` (optional) - Whether to show the output in the console when installing or removing. By default, this is true.
 - `root` (optional) - Whether the scripts are run with root. This is false by default.
+- `running_directory` (optional) - Directory where the script is executed. This is the module directory by default.
 
 ## Security
 As with the command job, the script job can execute arbitrary scripts, which can do anything on your system. This is especially important, when installing modules from repositories of other users. Pusta does not guarantee anything about the safety of a module when executing.

@@ -1,5 +1,6 @@
+use std::path::{Path, PathBuf};
 use anyhow::Context;
-use log::{info, warn};
+use log::{debug, info, warn};
 use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +11,8 @@ pub struct CommandJob {
 
     reinstall: Option<bool>,
     show_output: Option<bool>,
-    root: Option<bool>
+    root: Option<bool>,
+    running_directory: Option<String>
 }
 
 #[typetag::serde(name = "command")]
@@ -18,7 +20,10 @@ impl Installable for CommandJob {
 
     fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
 
-        env.shell.run_command(&self.install, self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Failed to run custom command")?;
+        let mut running_directory = env.module_path.clone();
+        if let Some(path) = self.running_directory.as_ref() { running_directory.push(shellexpand::tilde(path).as_ref()); }
+
+        env.shell.run_command(&self.install, self.root.unwrap_or(false), self.show_output.unwrap_or(true), Some(&running_directory)).context("Failed to run custom command")?;
 
         Ok(())
     }
@@ -26,7 +31,10 @@ impl Installable for CommandJob {
     fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
 
         if let Some(uninstall) = &self.uninstall {
-            env.shell.run_command(uninstall, self.root.unwrap_or(false), self.show_output.unwrap_or(true)).context("Failed to run custom uninstall command")?;
+            let mut running_directory = env.module_path.clone();
+            if let Some(path) = self.running_directory.as_ref() { running_directory.push(shellexpand::tilde(path).as_ref()) }
+
+            env.shell.run_command(uninstall, self.root.unwrap_or(false), self.show_output.unwrap_or(true), Some(&running_directory)).context("Failed to run custom uninstall command")?;
         }
 
         Ok(())

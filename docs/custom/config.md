@@ -17,7 +17,7 @@ system: # subcategory for your system environment
 security: # subcategory for security specific settings
 ```
 
-- `cache_dir` - Pusta stores its state (which modules are installed, and so on) in the directory set here. By default this is at `$XDG_STATE_HOME/pusta` or `~/.local/state/pusta`. It is not recommended to change this option, since you'll also have to move the cache to your new directory, or otherwise pusta won't know what you have installed. **Note that "cache" is not at all a good description for the content of this directory - it can't just be deleted without any consequences.**
+- `cache_dir` - Pusta stores its state (which modules are installed, and so on) in the directory set here. By default this is at `$XDG_STATE_HOME/pusta` or `~/.local/state/pusta`. It is **not recommended** to change this option, since you'll also have to move the cache to your new directory, or otherwise pusta won't know what you have installed. **Note that "cache" is not at all a good description for the content of this directory - it can't just be deleted without any consequences.**
 - `system` - This subcategory holds options for your system environment, learn more in the [Environment](#environment) section.
 - `security` - This subcategory holds options for security specific settings, mainly when Pusta should prompt for manual confirmation. Learn more in the [Security](#security) section.
 
@@ -27,6 +27,8 @@ This subcategory holds options which are related to your system configuration an
 # config.yml
 
 system:
+  default_directory: [path] # default directory where relative paths start
+
   root_elevator: [command(COMMAND)] # program to elevate to root privileges
   file_previewer: [command(FILE)] # program to preview files
   
@@ -35,6 +37,7 @@ system:
 
 As you can see, some of these properties require commands, which have dynamic arguments in them. To specify where each argument goes, a special syntax is used, giving the argument name in caps surrounded by ampersands. This special string is replaced by the actual argument on runtime. Take the default for the `root_elevator` as an example: `sudo %COMMAND%`
 
+- `default_directory` - The directory where shell commands are executed if not set otherwise. Relative paths provided in module definitions are subpaths of this directory, unless specified otherwise in the documentation. Since this can impact how certain modules are installed, it is **not recommended** to change this property. The default is the home directory (`$HOME`).
 - `root_elevator` - The tool that is used to acquire root privileges. This used to perform things on the system that require root privileges. Because everything pusta does is over the shell, this program will be used in the shell to acquire root privileges for just that single action. This command needs to contain the `%COMMAND%` argument. In most cases this will be `sudo %COMMAND%` (the default), or `doas %COMMAND%`.
 - `file_previewer` - This tool is used to preview scripts before executing them, if so configured in the security settings. This command takes the `%FILE%` argument. The default is `less %FILE%`.
 - `package_manager` - This is an entire category for how to use the system package manager. The default for this category are dummy values, which will print an error if they are used.

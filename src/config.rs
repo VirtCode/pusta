@@ -1,6 +1,6 @@
 use std::{env};
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context};
 use log::{debug};
 use serde::{Deserialize, Serialize};
@@ -67,7 +67,8 @@ pub struct ConfigShell {
     #[serde(default="ConfigShell::file_previewer_default")]
     pub file_previewer: String,
     #[serde(default)]
-    pub package_manager: ConfigPackage
+    pub package_manager: ConfigPackage,
+    pub default_directory: Option<String>
 }
 
 impl ConfigShell {
@@ -87,7 +88,8 @@ impl Default for ConfigShell {
         ConfigShell {
             root_elevator: ConfigShell::root_elevator_default(),
             file_previewer: ConfigShell::file_previewer_default(),
-            package_manager: Default::default()
+            package_manager: Default::default(),
+            default_directory: None
         }
     }
 }

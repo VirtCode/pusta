@@ -110,8 +110,6 @@ fn run(exec: &str, output: bool, running_directory: Option<&Path>) -> anyhow::Re
     let mut dir = PathBuf::from(env::var("HOME").context("No home directory ($HOME) defined, which is required")?);
     if let Some(running_directory) = running_directory { dir.push(running_directory) }
 
-    debug!("{:?}", running_directory);
-
     let mut command = Command::new(&shell);
     if output { command.stdout(Stdio::inherit()).stdin(Stdio::inherit()).stderr(Stdio::inherit()); }
     command.current_dir(dir);

@@ -3,8 +3,8 @@ use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Error};
-use chksum::Chksum;
-use chksum::prelude::HashAlgorithm;
+use chksum::chksum;
+use chksum::hash::SHA1;
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
@@ -74,9 +74,8 @@ impl Module {
         let dependencies: Vec<String> = config.depends.map(|s| s.split(' ').map(str::to_owned).collect()).unwrap_or_default();
 
         // Calculate current checksum
-        let checksum = fs::read_dir(directory).context("Failed to read dir for checksum").and_then(|mut f| {
-            f.chksum(HashAlgorithm::SHA1).map(|digest| format!("{:x}", digest)).context("Failed to calculate checksum")
-        })?;
+        let dir = fs::read_dir(directory).context("Failed to read dir for checksum")?;
+        let checksum = chksum::<SHA1, _>(dir).context("Failed to calculate checksum")?.to_hex_lowercase();
         
         let qualifier = ModuleQualifier::new(parent.name.clone(), directory, config.alias, config.provides);
         if !qualifier.legal() {

@@ -1,8 +1,8 @@
 use std::fs::File;
 use std::path::Path;
 use anyhow::Context;
-use chksum::Chksum;
-use chksum::hash::HashAlgorithm;
+use chksum::chksum;
+use chksum::hash::SHA1;
 use serde::{Deserialize, Serialize};
 use log::warn;
 
@@ -56,7 +56,8 @@ impl ResourceFile {
         path.canonicalize().context("Failed to canonicalize resource path")?;
 
         // Calculate checksum
-        let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);
+        let handle = File::open(path).context("Failed to open file to get checksum")?;
+        let checksum = chksum::<SHA1, _>(handle).context("Failed to calculate checksum")?.to_hex_lowercase();
 
         Ok(ResourceFile {
             file,
@@ -70,7 +71,9 @@ impl ResourceFile {
         path.push(&self.file);
         path.canonicalize().context("Failed to canonicalize resource path")?;
 
-        let checksum = format!("{:x}", File::open(path).context("Failed to open file to get checksum")?.chksum(HashAlgorithm::SHA1).context("Failed to calculate checksum")?);
+        // Calculate checksum
+        let handle = File::open(path).context("Failed to open file to get checksum")?;
+        let checksum = chksum::<SHA1, _>(handle).context("Failed to calculate checksum")?.to_hex_lowercase();
 
         return Ok(self.checksum == checksum)
     }

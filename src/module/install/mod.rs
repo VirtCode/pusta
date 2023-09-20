@@ -20,6 +20,7 @@ use colored::Colorize;
 use crate::module::install::checked::CheckedShell;
 use crate::module::qualifier::ModuleQualifier;
 use crate::output::prompt_yn;
+use crate::variables::{default_system_variables, Variable};
 use crate::registry::index::Indexable;
 
 #[serde_as]
@@ -31,7 +32,9 @@ pub struct InstalledModule {
     pub installed: SystemTime,
     #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
     pub updated: SystemTime,
-    pub reason: InstallReason
+    pub reason: InstallReason,
+
+    pub variables: Variable
 }
 
 impl Indexable for InstalledModule {
@@ -118,7 +121,8 @@ impl Installer {
             data,
             installed: SystemTime::now(),
             updated: SystemTime::now(),
-            reason
+            reason,
+            variables: Variable::Value(String::new())
         };
 
 
@@ -278,7 +282,8 @@ impl Installer {
             data: new_data,
             installed: installed.installed.clone(),
             updated: SystemTime::now(),
-            reason: installed.reason.clone()
+            reason: installed.reason.clone(),
+            variables: Variable::Value(String::new())
         };
 
         if failure != 0 {

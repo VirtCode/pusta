@@ -7,12 +7,15 @@ use anyhow::{anyhow, Context, Error};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
+use crate::variables::Variable;
 
 pub const REPOSITORY_CONFIG: &str = "pusta.yml";
 
 #[derive(Deserialize)]
 pub struct RepositoryConfig {
-    pub alias: Option<String>
+    pub alias: Option<String>,
+
+    pub variables: Option<Variable>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -20,6 +23,8 @@ pub struct Repository {
 
     pub location: PathBuf,
     pub name: String,
+
+    pub variables: Option<Variable>
 
 }
 
@@ -41,7 +46,8 @@ impl Repository {
 
         Ok(Repository {
             location: fs::canonicalize(folder)?,
-            name
+            name,
+            variables: config.variables
         })
     }
 

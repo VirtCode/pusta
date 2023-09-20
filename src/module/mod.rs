@@ -13,6 +13,7 @@ use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::output;
 use crate::output::end_section;
+use crate::variables::Variable;
 use crate::registry::index::Indexable;
 
 pub mod repository;
@@ -33,7 +34,9 @@ pub struct ModuleConfig {
     provides: Option<String>,
     depends: Option<String>,
 
-    jobs: Vec<Job>
+    jobs: Vec<Job>,
+
+    variables: Option<Variable>
 
     // actions, variables, lists
 }
@@ -50,7 +53,9 @@ pub struct Module {
     pub author: Option<String>,
     pub version: String,
 
-    jobs: Vec<Job>
+    jobs: Vec<Job>,
+
+    variables: Option<Variable>
 
 }
 
@@ -92,7 +97,8 @@ impl Module {
             author: config.author,
             version: config.version,
 
-            jobs: config.jobs
+            jobs: config.jobs,
+            variables: config.variables
         }))
     }
 

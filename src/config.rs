@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context};
 use log::{debug};
 use serde::{Deserialize, Serialize};
 use crate::registry::cache;
+use crate::variables;
 
 pub const DEFAULT_PARENT: &str = "~/.config";
 pub const DEFAULT_FILE: &str = "/pusta/config.yml";
@@ -24,6 +25,9 @@ pub fn config_file() -> String {
 pub struct Config {
     #[serde(default = "cache::default_cache_dir")]
     pub cache_dir: String,
+
+    #[serde(default = "variables::default_system_variables")]
+    pub system_variables: String,
 
     #[serde(default)]
     pub system: ConfigShell,
@@ -52,6 +56,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cache_dir: cache::default_cache_dir(),
+            system_variables: variables::default_system_variables(),
             system: Default::default(),
             security: Default::default()
         }

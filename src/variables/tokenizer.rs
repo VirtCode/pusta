@@ -1,44 +1,8 @@
 use std::ops::Range;
 use std::str::FromStr;
-use codespan_reporting::diagnostic::{Diagnostic, Label};
-use codespan_reporting::files::SimpleFiles;
-use codespan_reporting::term;
-use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use lazy_regex::{Lazy, lazy_regex, regex};
-use regex::{Regex, Replacer};
-
-/// Intermediate type for an error occurring when resolving variables.
-/// This type is intended to be converted to a codespan-reporting error.
-#[derive(Debug)]
-pub struct VariableError {
-    title: String,
-    primary: (Range<usize>, String),
-    secondary: Vec<(Range<usize>, String)>,
-    summary: String
-}
-
-impl VariableError {
-
-    /// Prints the error to stdout using codespan-reporting.
-    pub fn print(&self, filename: &str, content: &str) {
-
-        let mut files = SimpleFiles::new();
-        let input = files.add(filename, content);
-
-        let mut labels = vec![ Label::primary(input, self.primary.0.clone()).with_message(&self.primary.1)];
-        labels.append(&mut self.secondary.iter().map(|(range, s)| Label::secondary(input, range.clone()).with_message(s)).collect());
-
-        let diagnostic = Diagnostic::error()
-            .with_message(&self.title)
-            .with_labels(labels)
-            .with_notes(vec![ self.summary.clone() ]);
-
-        let writer = StandardStream::stderr(ColorChoice::Always);
-        let config = term::Config::default();
-
-        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap(); // TODO: Handle this gracefully
-    }
-}
+use regex::Regex;
+use crate::variables::VariableError;
 
 /// Matches a keyword, e.g. !list
 static REGEX_KEYWORD: Lazy<Regex> = lazy_regex!(r"^\s*!([A-Za-z]+)\s+");
@@ -63,8 +27,8 @@ const REGEX_VARIABLE_MODIFIER_CLOSE: Lazy<Regex> = lazy_regex!(r"^\s*\)");
 /// Stores a token and where it's from
 #[derive(Debug)]
 pub struct Token {
-    range: Range<usize>,
-    token: TokenType
+    pub range: Range<usize>,
+    pub token: TokenType
 }
 
 /// Stores a type of token, either a variable, literal or keyword

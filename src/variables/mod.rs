@@ -1,10 +1,16 @@
-mod processor;
+pub mod tokenizer;
+pub mod contextualizer;
 
 use std::collections::HashMap;
 use std::env;
 use std::fs::File;
+use std::ops::Range;
 use std::path::PathBuf;
 use anyhow::{anyhow, Context};
+use codespan_reporting::diagnostic::{Diagnostic, Label};
+use codespan_reporting::files::SimpleFiles;
+use codespan_reporting::term;
+use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
@@ -104,4 +110,37 @@ pub fn generate_magic() -> Variable {
             ("hostname".into(), Variable::Value(whoami::hostname()))
         ])))
     ]))
+}
+
+/// Intermediate type for an error occurring when resolving variables.
+/// This type is intended to be converted to a codespan-reporting error.
+#[derive(Debug)]
+pub struct VariableError {
+    title: String,
+    primary: (Range<usize>, String),
+    secondary: Vec<(Range<usize>, String)>,
+    summary: String
+}
+
+impl VariableError {
+
+    /// Prints the error to stdout using codespan-reporting.
+    pub fn print(&self, filename: &str, content: &str) {
+
+        let mut files = SimpleFiles::new();
+        let input = files.add(filename, content);
+
+        let mut labels = vec![ Label::primary(input, self.primary.0.clone()).with_message(&self.primary.1)];
+        labels.append(&mut self.secondary.iter().map(|(range, s)| Label::secondary(input, range.clone()).with_message(s)).collect());
+
+        let diagnostic = Diagnostic::error()
+            .with_message(&self.title)
+            .with_labels(labels)
+            .with_notes(vec![ self.summary.clone() ]);
+
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = term::Config::default();
+
+        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap(); // TODO: Handle this gracefully
+    }
 }

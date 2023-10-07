@@ -1,5 +1,5 @@
-pub mod tokenizer;
-pub mod contextualizer;
+pub mod token;
+pub mod context;
 
 use std::collections::HashMap;
 use std::env;

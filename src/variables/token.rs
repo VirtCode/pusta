@@ -165,7 +165,7 @@ pub fn read_token_at(input: &str, position: usize) -> Result<Token, VariableErro
 /// Shifts a range forward by a given position.
 /// This has to be used to shift ranges returned from capture groups of regexes, so they are valid in the whole string and not only the substring provided to the method.
 /// And yes, the captures_at method does not do the trick since anchors like ^ do not work there.
-fn shift_range(mut range: Range<usize>, position: usize) -> Range<usize> {
+pub fn shift_range(mut range: Range<usize>, position: usize) -> Range<usize> {
     range.start += position;
     range.end += position;
 

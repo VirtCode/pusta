@@ -11,7 +11,6 @@ use crate::config::Config;
 use clap::Parser;
 use crate::output::logger;
 use crate::registry::Registry;
-use crate::variables::contextualizer::read_context;
 
 mod command;
 mod module;
@@ -22,15 +21,6 @@ mod registry;
 mod variables;
 
 fn main() {
-    let file = fs::read_to_string("tests/test.txt").unwrap();
-
-        match read_context(&file, 0) {
-            Ok((context, _)) => {println!("{context:#?}")}
-            Err(e) => { e.print("test.txt", &file) }
-        }
-
-    return;
-
     let command: Command = Command::parse();
 
     logger::enable_logging(command.verbose);

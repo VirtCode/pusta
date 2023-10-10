@@ -1,5 +1,7 @@
 pub mod token;
 pub mod context;
+pub mod evaluate;
+pub mod modifier;
 
 use std::collections::HashMap;
 use std::env;
@@ -18,12 +20,40 @@ use crate::config::Config;
 pub const LEVEL_SEPARATOR: char = '.';
 
 /// Represents a variable, may either be a value, a list oder a group
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Variable {
     Group(HashMap<String, Variable>),
     List(Vec<Variable>),
-    Value(String),
+    Value(Value),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Value {
+    String(String),
+    Number(f64),
+    Boolean(bool)
+}
+
+impl Value {
+    fn type_name(&self) -> String {
+        match self {
+            Value::String(_) => { "string" }
+            Value::Number(_) => { "number" }
+            Value::Boolean(_) => { "boolean" }
+        }.into()
+    }
+}
+
+impl ToString for Value {
+    fn to_string(&self) -> String {
+        match self {
+            Value::String(s) => { s.clone() }
+            Value::Number(n) => { n.to_string() }
+            Value::Boolean(d) => { d.to_string() }
+        }
+    }
 }
 
 impl Variable {
@@ -92,7 +122,7 @@ pub fn load_system(config: &Config) -> Option<Variable> {
     }
 
     match File::open(&path).map_err(|e| anyhow!(e))
-        .and_then(|f| serde_yaml::from_reader(f).context("Failed to deserialize config")) {
+        .and_then(|f| serde_yaml::from_reader(f).context("Failed to deserialize system variables")) {
 
         Ok(var) => { Some(var) }
         Err(e) => {
@@ -106,8 +136,8 @@ pub fn load_system(config: &Config) -> Option<Variable> {
 pub fn generate_magic() -> Variable {
     Variable::Group(HashMap::from([
         ("pusta".into(), Variable::Group(HashMap::from([
-            ("username".into(), Variable::Value(whoami::username())),
-            ("hostname".into(), Variable::Value(whoami::hostname()))
+            ("username".into(), Variable::Value(Value::String(whoami::username()))),
+            ("hostname".into(), Variable::Value(Value::String(whoami::hostname())))
         ])))
     ]))
 }

@@ -18,15 +18,15 @@ const KEYWORD_END: &str = "end";
 /// Represents a file or part of a file with dynamic content
 #[derive(Debug)]
 pub struct Context {
-    source: Range<usize>,
-    statements: Vec<Statement>
+    pub source: Range<usize>,
+    pub statements: Vec<Statement>
 }
 
 /// Represents a single instance of dynamic content
 #[derive(Debug)]
 pub struct Statement {
-    location: Range<usize>,
-    content: StatementType
+    pub location: Range<usize>,
+    pub content: StatementType
 }
 
 /// Represents all different types dynamic content can be
@@ -51,14 +51,28 @@ pub enum StatementType {
 
 /// Represents an expression which is evaluated to a value
 #[derive(Debug)]
-pub enum Expression {
-    Literal {
-        content: TokenLiteral
-    },
-    Variable {
-        name: String,
-        modifiers: Vec<(String, Vec<Expression>)>
-    }
+pub struct Expression {
+    pub range: Range<usize>,
+    pub content: ExpressionContent,
+    pub content_range: Range<usize>,
+    pub modifiers: Vec<ExpressionModifier>
+}
+
+/// Represents the content of an expression, either a literal or a variable
+#[derive(Debug)]
+pub enum ExpressionContent {
+    LiteralString(String),
+    LiteralNumber(f64),
+    LiteralBool(bool),
+    Variable(String)
+}
+
+/// Represents a modifier which is at the end of an expression
+#[derive(Debug)]
+pub struct ExpressionModifier {
+    pub name: String,
+    pub name_range: Range<usize>,
+    pub parameters: Vec<Expression>
 }
 
 enum NextStatement {
@@ -83,13 +97,14 @@ pub fn read_context(input: &str) -> Result<Context, VariableError> {
 
 /// Reads a context from the specified starting position
 /// Exits early if it encounters a rouge control flow keyword
+///     In these cases, it returns the keyword alongside the range it has found it
 pub fn read_next_context(input: &str, start: usize) -> Result<(Context, Option<(String, Range<usize>)>), VariableError> {
 
     let mut read_start = start;
 
     let mut statements = vec![];
     let mut control_flow = None;
-    let mut end = input.len() - 1;
+    let mut end = input.len();
 
     /// Match a new expression
     while let Some(start) = read_statement_start(input, read_start) {
@@ -101,7 +116,7 @@ pub fn read_next_context(input: &str, start: usize) -> Result<(Context, Option<(
                 read_start = next_end;
             }
             NextStatement::ControlFlow(keyword) => {
-                end = next_end;
+                end = start.start;
                 control_flow = Some((keyword, start.start..next_end));
                 break;
             }
@@ -129,7 +144,15 @@ fn read_statement_start(input: &str, start: usize) -> Option<Range<usize>> {
 /// If no statement end is present, an error will be thrown with the summary provided
 fn read_statement_end(input: &str, start: usize, open_range: &Range<usize>, summary: &str) -> Result<Range<usize>, VariableError>{
     if let Some(end) = REGEX_END.captures(&input[start..]) {
-        Ok(shift_range(end.get(0).expect("0th capture always exists").range(), start))
+        let mut close_range = shift_range(end.get(0).expect("0th capture always exists").range(), start);
+
+        // include newlines at end if the whole line is an expression
+        if input.chars().nth(open_range.start - 1).map(|c| c == '\n').unwrap_or_default() &&
+            input.chars().nth(close_range.end).map(|c| c == '\n').unwrap_or_default() {
+            close_range.end += 1;
+        }
+
+        Ok(close_range)
     } else {
         Err(VariableError {
             title: "expected end of statement".into(),
@@ -147,13 +170,13 @@ fn read_next_statement(input: &str, open_range: Range<usize>) -> Result<(usize, 
 
     Ok(match first.token {
 
-        TokenType::Variable { name, modifiers } => { // Expression statement
+        TokenType::Variable { name, modifiers, name_range } => { // Expression statement
 
             let end = read_statement_end(input, first.range.end, &open_range, "a variable reference must only contain a single token")?;
 
             (end.end, NextStatement::Full(Statement {
                 location: open_range.start..end.end,
-                content: StatementType::Expression { content: to_variable_expression(name, modifiers)? }
+                content: StatementType::Expression { content: to_variable_expression(first.range, name, modifiers, name_range)? }
             }))
         }
 
@@ -200,8 +223,8 @@ fn read_if_statement(input: &str, open_range: Range<usize>, first: &Token) -> Re
 
     let condition_token = read_token_at(input, first.range.end)?;
     let condition = match condition_token.token {
-        TokenType::Variable { name, modifiers } => { to_variable_expression(name, modifiers)? }
-        TokenType::Literal { value } => { to_literal_expression(value) }
+        TokenType::Variable { name, modifiers, name_range } => { to_variable_expression(condition_token.range.clone(), name, modifiers, name_range)? }
+        TokenType::Literal { value } => { to_literal_expression(condition_token.range.clone(), value) }
         _ => {
             return Err(VariableError {
                 title: "expected variable reference or literal".into(),
@@ -275,7 +298,7 @@ fn read_if_statement(input: &str, open_range: Range<usize>, first: &Token) -> Re
 fn read_list_statement(input: &str, open_range: Range<usize>, first: &Token) -> Result<(usize, Statement), VariableError> {
     let expression_token = read_token_at(input, first.range.end)?;
     let expression = match expression_token.token {
-        TokenType::Variable { name, modifiers } => { to_variable_expression(name, modifiers)? }
+        TokenType::Variable { name, modifiers, name_range } => { to_variable_expression(expression_token.range.clone(), name, modifiers, name_range)? }
         _ => {
             return Err(VariableError {
                 title: "expected variable reference".into(),
@@ -320,30 +343,44 @@ fn read_list_statement(input: &str, open_range: Range<usize>, first: &Token) -> 
 }
 
 /// Converts a tokenized variable into an expression
-fn to_variable_expression(name: String, modifiers: Vec<(String, Vec<Token>)>) -> Result<Expression, VariableError> {
-    Ok(Expression::Variable {
-        name,
-        modifiers: modifiers.into_iter().map(|(name, tokens)| {
-            Ok((name,
-            tokens.into_iter().map(|token| {
-                match token.token {
-                    TokenType::Variable { name, modifiers } => { to_variable_expression(name, modifiers) }
-                    TokenType::Literal { value } => { Ok(to_literal_expression(value)) }
-                    TokenType::Keyword { .. } => {
-                        return Err(VariableError {
-                            title: "expected variable reference or literal".into(),
-                            primary: (token.range, "found keyword, expected variable reference or literal".into()),
-                            secondary: vec![],
-                            summary: "variable modifiers cannot take keywords as parameters".into()
-                        })
+fn to_variable_expression(range: Range<usize>, name: String, modifiers: Vec<(String, Vec<Token>, Range<usize>)>, name_range: Range<usize>) -> Result<Expression, VariableError> {
+    Ok(Expression {
+        range,
+        content: ExpressionContent::Variable(name),
+        content_range: name_range,
+        modifiers: modifiers.into_iter().map(|(name, tokens, range)| {
+            Ok(ExpressionModifier {
+               name,
+                name_range: range,
+                parameters: tokens.into_iter().map(|token| {
+                    match token.token {
+                        TokenType::Variable { name, modifiers, name_range } => { to_variable_expression(token.range, name, modifiers, name_range) }
+                        TokenType::Literal { value } => { Ok(to_literal_expression(token.range, value)) }
+                        TokenType::Keyword { .. } => {
+                            return Err(VariableError {
+                                title: "expected variable reference or literal".into(),
+                                primary: (token.range, "found keyword, expected variable reference or literal".into()),
+                                secondary: vec![],
+                                summary: "variable modifiers cannot take keywords as parameters".into()
+                            })
+                        }
                     }
-                }
-            }).collect::<Result<Vec<Expression>, VariableError>>()?))
-        }).collect::<Result<Vec<(String, Vec<Expression>)>, VariableError>>()?
+                }).collect::<Result<Vec<Expression>, VariableError>>()?
+            })
+        }).collect::<Result<Vec<ExpressionModifier>, VariableError>>()?
     })
 }
 
 /// Converts a tokenized literal to an expression
-fn to_literal_expression(value: TokenLiteral) -> Expression {
-    Expression::Literal {content: value}
+fn to_literal_expression(range: Range<usize>, value: TokenLiteral) -> Expression {
+    Expression {
+        range: range.clone(),
+        content: match value {
+            TokenLiteral::String(s) => { ExpressionContent::LiteralString(s) }
+            TokenLiteral::Number(n) => { ExpressionContent::LiteralNumber(n) }
+            TokenLiteral::Boolean(b) => { ExpressionContent::LiteralBool(b) }
+        },
+        content_range: range,
+        modifiers: vec![],
+    }
 }

@@ -15,7 +15,7 @@ const REGEX_LITERAL_NUMBER: Lazy<Regex> = lazy_regex!(r"^\s*(-?[0-9]+(?:\.[0-9]+
 const REGEX_LITERAL_STRING: Lazy<Regex> = lazy_regex!(r#"^\s*"(.*?[^\\])"\s+"#);
 
 /// Matches a variable name, e.g. theme.my-fancy-variable.color
-const REGEX_VARIABLE_NAME: Lazy<Regex> = lazy_regex!(r"^\s*([A-Za-z-]+(?:\.[A-Za-z-]+)*)(?:(?:\s+)|(?::))");
+const REGEX_VARIABLE_NAME: Lazy<Regex> = lazy_regex!(r"^\s*([A-Za-z-_]+(?:\.[A-Za-z-]+)*)(?:(?:\s+)|(?::))");
 /// Matches a variable modifier name, e.g. :my-awesome-modifier
 const REGEX_VARIABLE_MODIFIER_NAME: Lazy<Regex> = lazy_regex!(r"^:([A-Za-z-]+)");
 /// Matches an opening brace for a modifier, e.g. (
@@ -37,7 +37,8 @@ pub enum TokenType {
     // pusta.hostname, theme.background:color-format( variable another.variable )
     Variable {
         name: String,
-        modifiers: Vec<(String, Vec<Token>)>
+        name_range: Range<usize>,
+        modifiers: Vec<(String, Vec<Token>, Range<usize>)>
     },
     // !if, !else, !list, !end
     Keyword {
@@ -124,6 +125,8 @@ pub fn read_token_at(input: &str, position: usize) -> Result<Token, VariableErro
         let mut pos = shift_range(name.range(), position).end;
         while let Some(modifier_capture) = REGEX_VARIABLE_MODIFIER_NAME.captures(&input[pos..]) {
             let modifier_name = modifier_capture.get(1).expect("regex should have group");
+            let modifier_name_range = shift_range(modifier_name.range(), pos);
+
             pos = shift_range(modifier_name.range(), pos).end; // Preemptively set position of next token
 
             // Read arguments for modifier when a brace opens
@@ -145,12 +148,12 @@ pub fn read_token_at(input: &str, position: usize) -> Result<Token, VariableErro
                 }
             }
 
-            modifiers.push((modifier_name.as_str().to_owned(), arguments));
+            modifiers.push((modifier_name.as_str().to_owned(), arguments, modifier_name_range));
         }
 
         return Ok(Token {
             range: (shift_range(m.get(0).expect("regex should have group").range(), position).start)..(pos),
-            token: TokenType::Variable { name: name.as_str().to_owned(), modifiers }
+            token: TokenType::Variable { name: name.as_str().to_owned(), modifiers, name_range: shift_range(name.range(), position)}
         })
     }
 

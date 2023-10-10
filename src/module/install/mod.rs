@@ -2,6 +2,7 @@ pub mod shell;
 pub mod checked;
 
 use std::{cmp, fs};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use anyhow::{anyhow, Context, Error};
@@ -20,7 +21,7 @@ use colored::Colorize;
 use crate::module::install::checked::CheckedShell;
 use crate::module::qualifier::ModuleQualifier;
 use crate::output::prompt_yn;
-use crate::variables::{default_system_variables, Variable};
+use crate::variables::{default_system_variables, Value, Variable};
 use crate::registry::index::Indexable;
 
 #[serde_as]
@@ -122,7 +123,7 @@ impl Installer {
             installed: SystemTime::now(),
             updated: SystemTime::now(),
             reason,
-            variables: Variable::Value(String::new())
+            variables: Variable::Group(HashMap::new())
         };
 
 
@@ -283,7 +284,7 @@ impl Installer {
             installed: installed.installed.clone(),
             updated: SystemTime::now(),
             reason: installed.reason.clone(),
-            variables: Variable::Value(String::new())
+            variables: Variable::Group(HashMap::new())
         };
 
         if failure != 0 {

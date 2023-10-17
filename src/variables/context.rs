@@ -75,11 +75,13 @@ pub struct ExpressionModifier {
     pub parameters: Vec<Expression>
 }
 
+/// Intermediate enum to help which stopping contextualization
 enum NextStatement {
     Full(Statement),
     ControlFlow(String)
 }
 
+/// Reads the context out of a string
 pub fn read_context(input: &str) -> Result<Context, VariableError> {
     let (context, control) = read_next_context(input, 0)?;
 
@@ -95,9 +97,9 @@ pub fn read_context(input: &str) -> Result<Context, VariableError> {
     Ok(context)
 }
 
-/// Reads a context from the specified starting position
-/// Exits early if it encounters a rouge control flow keyword
-///     In these cases, it returns the keyword alongside the range it has found it
+/// Reads a context from the specified starting position.
+/// Exits early if it encounters a rouge control flow keyword.
+///     In these cases, it returns the keyword alongside the range where it has found it
 pub fn read_next_context(input: &str, start: usize) -> Result<(Context, Option<(String, Range<usize>)>), VariableError> {
 
     let mut read_start = start;

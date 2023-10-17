@@ -13,21 +13,13 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
-use log::debug;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
 
 pub const LEVEL_SEPARATOR: char = '.';
 
-/// Represents a variable, may either be a value, a list oder a group
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Variable {
-    Group(HashMap<String, Variable>),
-    List(Vec<Variable>),
-    Value(Value),
-}
-
+/// Represents a basic variable value, split into three basic types
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
@@ -37,6 +29,7 @@ pub enum Value {
 }
 
 impl Value {
+    /// Returns the type name as a string
     fn type_name(&self) -> String {
         match self {
             Value::String(_) => { "string" }
@@ -54,6 +47,15 @@ impl ToString for Value {
             Value::Boolean(d) => { d.to_string() }
         }
     }
+}
+
+/// Represents a variable, may either be a value, a list oder a group
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Variable {
+    Group(HashMap<String, Variable>),
+    List(Vec<Variable>),
+    Value(Value),
 }
 
 impl Variable {
@@ -171,6 +173,8 @@ impl VariableError {
         let writer = StandardStream::stderr(ColorChoice::Always);
         let config = term::Config::default();
 
-        term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap(); // TODO: Handle this gracefully
+        if let Err(e) = term::emit(&mut writer.lock(), &config, &files, &diagnostic) {
+            error!("Failed to print pretty error to stderr: {e}")
+        }
     }
 }

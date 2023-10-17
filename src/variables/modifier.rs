@@ -56,7 +56,9 @@ impl ModifierError {
 
         let secondary = self.notes.iter().map(|note| {
             match note {
-                ModifierErrorNote::Variable(s) => { (expr.content_range.clone(), s.clone()) }
+                ModifierErrorNote::Variable(s) => {
+                    (expr.content_range.start..(modifier.name_range.start - 1), s.clone())
+                }
                 ModifierErrorNote::Parameter(i, s) => {
                     let parameter = modifier.parameters.get(*i).expect("parameter implementation broken");
                     (parameter.content_range.clone(), s.clone())

@@ -1,7 +1,9 @@
-use crate::module::transaction::change::{ChangeError, ChangeResult, ChangeRuntime};
+use serde::{Deserialize, Serialize};
+use crate::module::transaction::change::{AtomicChange, ChangeError, ChangeResult, ChangeRuntime};
 
 mod change;
 mod shell;
+mod worker;
 
 /// Represents a single transaction on the system
 struct TransactionData {
@@ -39,13 +41,12 @@ struct JobTransaction {
     root: bool,
 
     /// Changes
-    changes: Vec<dyn AtomicChange>
+    changes: Vec<ChangeTransaction>
 }
 
-/// Represents an atomic change
-trait AtomicChange {
-    /// Applies the atomic change
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult;
-    /// Reverts the atomic change
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult;
+#[derive(Serialize, Deserialize)]
+struct ChangeTransaction {
+    id: u32,
+    change: Box<dyn AtomicChange>
 }
+

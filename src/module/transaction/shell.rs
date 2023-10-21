@@ -25,7 +25,7 @@ fn run(mut command: Command, interactive: bool) -> RunResult {
         .stderr(Stdio::piped())
         .stdin(if interactive { Stdio::inherit() } else { Stdio::null() });
 
-    let mut child = command.spawn().map_err(|| "could not invoke command".into())?;
+    let mut child = command.spawn().map_err(|_| "could not invoke command".to_string())?;
 
     let stdout = child.stdout.take().expect("stdout is always captured");
     let stdout_join = read_output_parallel(stdout, interactive, "    ");
@@ -33,16 +33,16 @@ fn run(mut command: Command, interactive: bool) -> RunResult {
     let stderr = child.stderr.take().expect("stderr is always captured");
     let stderr_join = read_output_parallel(stderr, interactive, "err:");
 
-    let status = child.wait().map_err(|| "command did not run when expected to".into())?;
-    let stdout = stdout_join.join().map_err(|| "could not properly read stdout".into())?;
-    let stderr = stderr_join.join().map_err(|| "could not properly read stderr".into())?;
+    let status = child.wait().map_err(|_| "command did not run when expected to".to_string())?;
+    let stdout = stdout_join.join().map_err(|_| "could not properly read stdout".to_string())?;
+    let stderr = stderr_join.join().map_err(|_| "could not properly read stderr".to_string())?;
 
     Ok(RunData { status, stdout, stderr })
 }
 
 /// Returns the executable of the shell to use
 fn shell_executable() -> String {
-    env::var("SHELL").unwrap_or_else(|| "sh".into())
+    env::var("SHELL").unwrap_or_else(|_| "sh".into())
 }
 
 /// Runs a command on the shell
@@ -62,7 +62,9 @@ pub fn run_script(path: &Path, dir: &Path, interactive: bool) -> RunResult {
 }
 
 /// Reads the output of a given stream to a string and may print it to the console in the process
-fn read_output_parallel<T: Read>(output: T, print: bool, prefix: &str) -> JoinHandle<String> {
+fn read_output_parallel<T: Read + Send + 'static>(output: T, print: bool, prefix: &str) -> JoinHandle<String> {
+    let prefix = prefix.to_owned();
+
     thread::spawn(move || {
         let mut buffer = String::new();
 

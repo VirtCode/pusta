@@ -175,6 +175,6 @@ impl VariableError {
 
         if let Err(e) = term::emit(&mut writer.lock(), &config, &files, &diagnostic) {
             error!("Failed to print pretty error to stderr: {e}")
-        }
+        };
     }
 }

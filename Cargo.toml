@@ -1,20 +1,28 @@
 [package]
 name = "pusta"
 description = "a dotfiles framework focussing on modularity"
-version = "0.2.0"
+version = "0.3.0"
 
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# normal binary which is used by the user
+[[bin]]
+name = "pusta"
+path = "src/main.rs"
+
+# worker binary which applies changes
+[[bin]]
+name = "pusta-worker"
+path = "src/module/transaction/worker.rs"
 
 [dependencies]
-
 # Serialization and stuff
 serde = { version = "1.0.*", features = ["derive"] }
 serde_yaml = "0.9.*"
 serde_json = "1.0.*"
 serde_with = "3.3.0"
 typetag = "0.2.*"
+uuid = { version = "1.5.0", features = ["v4"]}
 
 # Using these because i am too lazy to implement them myself
 dyn-clone = "1.0.*"

@@ -23,7 +23,7 @@ const TEMP_PATH: &str = "temp";
 const TEMP_CACHE: &str = "cache";
 
 pub struct ChangeRuntime {
-    dir: PathBuf
+    pub(crate) dir: PathBuf
 }
 
 impl ChangeRuntime {
@@ -61,7 +61,11 @@ impl ChangeRuntime {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum ChangeError {
+    WorkerFatal {
+        message: String
+    },
     Filesystem {
         path: PathBuf,
         message: String,
@@ -127,12 +131,16 @@ impl ChangeError {
     fn cache(path: PathBuf, target_path: PathBuf, message: String) -> Self {
         Self::Cache { path, target_path, message }
     }
+
+    pub fn fatal(message: String) -> Self {
+        Self::WorkerFatal { message }
+    }
 }
 
 
 /// This change cleans the spot where a file is going to be put
 #[derive(Serialize, Deserialize)]
-struct ClearChange {
+pub struct ClearChange {
     /// File to clear
     file: PathBuf,
 
@@ -178,7 +186,7 @@ impl AtomicChange for ClearChange {
 
 /// This change inserts some text into a file somewhere
 #[derive(Serialize, Deserialize)]
-struct WriteChange {
+pub struct WriteChange {
     /// Text to insert into a file
     text: String,
     /// File to insert text into
@@ -208,7 +216,7 @@ impl AtomicChange for WriteChange {
 
 /// This change copies a file somewhere
 #[derive(Serialize, Deserialize)]
-struct CopyChange {
+pub struct CopyChange {
     /// File to copy to
     file: PathBuf,
     /// Source file to copy
@@ -240,7 +248,7 @@ impl AtomicChange for CopyChange {
 
 /// This change links a file to a location
 #[derive(Serialize, Deserialize)]
-struct LinkChange {
+pub struct LinkChange {
     /// File to place link at
     file: PathBuf,
     /// File to link
@@ -270,7 +278,7 @@ impl AtomicChange for LinkChange {
 
 /// This change runs a command on the shell
 #[derive(Serialize, Deserialize)]
-struct RunChange {
+pub struct RunChange {
     /// Command to run when applying the change
     apply: String,
     /// Command to run when reverting the change
@@ -323,7 +331,7 @@ impl AtomicChange for RunChange {
 
 /// This change runs a command on the shell
 #[derive(Serialize, Deserialize)]
-struct ScriptChange {
+pub struct ScriptChange {
     /// Script code to run when applying the change
     apply: String,
     /// Script code to run when reverting the change

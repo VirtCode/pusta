@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use crate::module::transaction::change::{AtomicChange, ChangeError, ChangeResult, ChangeRuntime};
 
-mod change;
+pub mod change;
 mod shell;
-mod worker;
+pub mod worker;
 
 /// Represents a single transaction on the system
 struct TransactionData {

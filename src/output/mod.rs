@@ -22,6 +22,16 @@ pub fn prompt_yn(question: &str, default: bool) -> bool {
     else { line.starts_with('y') } // Assume no for garbage input
 }
 
+pub fn prompt(question: &str) -> String {
+    print!("{} {}", "??".bright_blue().bold(), question);
+    stdout().flush().unwrap_or(());
+
+    let mut line = String::new();
+    if stdin().read_line(&mut line).is_err() {
+        error!("Failed to read from stdin");
+        String::new()
+    } else { line.trim().to_string() }
+}
 pub fn prompt_choice(question: &str, choices: &Vec<String>, default: Option<usize>) -> usize {
     println!("{} {}", "??".bright_blue().bold(), question);
 

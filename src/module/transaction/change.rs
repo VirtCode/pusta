@@ -15,8 +15,15 @@ use crate::module::transaction::shell;
 pub trait AtomicChange {
     /// Applies the atomic change
     fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult;
+
     /// Reverts the atomic change
     fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult;
+
+    /// Returns a description of the change, based on its data
+    fn describe(&self) -> String;
+
+    /// Returns a list of critical data used
+    fn files(&self) -> Vec<(String, String)>;
 }
 
 const TEMP_PATH: &str = "temp";
@@ -182,6 +189,14 @@ impl AtomicChange for ClearChange {
 
         Ok(())
     }
+
+    fn describe(&self) -> String {
+        format!("cleans out the directory '{}'", &self.file.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        vec![]
+    }
 }
 
 /// This change inserts some text into a file somewhere
@@ -211,6 +226,14 @@ impl AtomicChange for WriteChange {
         // Delete the file
         fs_extra::remove_items(&[&self.file])
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to delete file".into(), e.to_string()))
+    }
+
+    fn describe(&self) -> String {
+        format!("writes a file to '{}'", &self.file.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        vec![("content".to_string(), self.text.clone())]
     }
 }
 
@@ -244,6 +267,14 @@ impl AtomicChange for CopyChange {
         fs_extra::remove_items(&[&self.file])
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to remove copied file or directory".into(), e.to_string()))
     }
+
+    fn describe(&self) -> String {
+        format!("copies the file file '{}' to '{}'", &self.source.to_string_lossy(), &self.file.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        vec![]
+    }
 }
 
 /// This change links a file to a location
@@ -273,6 +304,14 @@ impl AtomicChange for LinkChange {
         // Delete symlink
         fs::remove_file(&self.file)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to remove symlink".into(), e.to_string()))
+    }
+
+    fn describe(&self) -> String {
+        format!("links the file file '{}' to '{}'", &self.source.to_string_lossy(), &self.file.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        vec![]
     }
 }
 
@@ -326,6 +365,18 @@ impl AtomicChange for RunChange {
         }
 
         Ok(())
+    }
+
+    fn describe(&self) -> String {
+        format!("runs a{} command on the shell in '{}'", if self.interactive { "n interactive" } else {""}, self.dir.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        let mut vec = vec![("install".to_string(), self.apply.clone())];
+        if let Some(revert) = &self.revert {
+            vec.push(("uninstall".to_string(), revert.clone()));
+        }
+        vec
     }
 }
 
@@ -385,5 +436,17 @@ impl AtomicChange for ScriptChange {
         }
 
         Ok(())
+    }
+
+    fn describe(&self) -> String {
+        format!("runs a{} script in '{}'", if self.interactive { "n interactive" } else {""}, self.dir.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        let mut vec = vec![("script".to_string(), self.apply.clone())];
+        if let Some(revert) = &self.revert {
+            vec.push(("revert script".to_string(), revert.clone()));
+        }
+        vec
     }
 }

@@ -43,7 +43,6 @@ fn worker(socket_id: Uuid, id: Uuid) -> anyhow::Result<()> {
                 for (k,v) in c { changes.insert(k,v); }
             }
             WorkerRequest::Request(id, apply) => {
-                println!("applying");
                 let response = if let Some(change) = changes.get_mut(&id) {
                     if apply { change.apply(&runtime) }
                     else { change.revert(&runtime) }

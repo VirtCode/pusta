@@ -2,7 +2,8 @@ use std::any::Any;
 use dyn_clone::{clone_trait_object, DynClone};
 use dyn_eq::{DynEq, eq_trait_object};
 use crate::jobs::cache::{JobCacheReader, JobCacheWriter};
-use crate::jobs::{InstallReader, InstallWriter, JobEnvironment};
+use crate::jobs::{BuiltJob, InstallReader, InstallWriter, JobEnvironment, JobError, JobResult};
+use crate::jobs::resources::JobResources;
 
 mod package;
 mod file;
@@ -16,12 +17,10 @@ eq_trait_object!(Installable);
 /// This trait will specify a job procedure type used by a Job
 #[typetag::serde(tag = "type")]
 pub trait Installable: DynClone + DynEq + Any {
-    /// Installs the procedure with a given environment
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()>;
-    /// Uninstalls the given procedure with a given environment
-    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()>;
-    /// Installs the job as an update, given the old installable
-    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>>;
+    /// builds the job into a built version of changes and resources etc.
+    fn build(&self, env: &JobEnvironment) -> JobResult<BuiltJob>;
+    /// builds the job into a built version, but with respecting the previous version
+    fn partial(&self, old: &dyn Installable, previous: &BuiltJob, env: &JobEnvironment) -> Option<JobResult<BuiltJob>>;
 
     /// Invents a completely new title if none is provided
     fn construct_title(&self) -> String;

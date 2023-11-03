@@ -1,10 +1,8 @@
-use std::fmt::format;
-use std::fs;
-use std::path::{Path, PathBuf};
-use anyhow::{Context, Error};
-use log::{debug, info, warn};
+use std::any::{Any, TypeId};
+use std::path::{PathBuf};
 use serde::{Deserialize, Serialize};
-use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
+use crate::jobs::{BuiltJob, check_resource, Installable, JobEnvironment, JobResult, load_resource, mark_resource, process_variables};
+use crate::module::transaction::change::{ClearChange, CopyChange, LinkChange, WriteChange};
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FileJob {
@@ -15,104 +13,83 @@ pub struct FileJob {
     link: Option<bool>
 }
 
-#[typetag::serde(name = "file")]
-impl Installable for FileJob {
+impl FileJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
-        let root = self.root.unwrap_or(false);
-
+    /// Deploys the file to the optimal location
+    fn deploy(&self, target: PathBuf, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<()>{
         // Get source file
-        let mut file = env.module_path.clone();
-        file.push(&self.file);
-        if !file.exists() { return Err(Error::msg(format!("File ('{}') does not exist", file.to_string_lossy()))); }
+        let source = PathBuf::from(&self.file);
+        let is_dir = check_resource(&source, env)?;
 
-        // Get target location
-        let mut target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
+        // deploy file depending on link and dir status
+        match (self.link.unwrap_or_default(), is_dir) {
+            (false, false) => {
+                let resource = load_resource(&source, env, built)?;
+                let resource = process_variables(&resource, env, built)?;
 
-        if target.exists() {
-            // There is already a file at the target location
-            info!("Caching and removing current file");
-            writer.cache.cache_foreign(&target, "original");
-            env.shell.remove(&target, root, None).context("Failed to remove original file to replace")?;
+                built.change(Box::new(WriteChange::new(resource, target)));
+            },
+            (false, true) => {
+                mark_resource(&source, env, built)?;
 
-        } else if let Some(path) = target.parent() {
-            if path.file_name().is_none() {
-                // Do nothing, is a relative path to running directory
-                // See https://github.com/rust-lang/rust/issues/36861
-            } else if !path.exists() {
-                // Parent dir does not yet exist
-                info!("Making parent directory");
-                env.shell.make_dir(path, root, None).context("Failed to make parent directories")?;
+                built.change(Box::new(CopyChange::new(target, source)));
+            },
+            (true, _) => {
+                mark_resource(&source, env, built)?;
 
-            } else if !path.is_dir() {
-                // Parent dir is not a file
-                return Err(Error::msg("Location parent directory is not a directory"))
+                built.change(Box::new(LinkChange::new(target, source)));
             }
         }
 
-        // Link or Copy file
-        if self.link.unwrap_or(false) {
-            info!("Linking file to target location");
-            env.shell.link(&file, &target, root, None).context("Failed to create symlink")?;
-        } else {
-            // TODO: process variables
-            info!("Copying file to target location");
-            env.shell.copy(&file, &target, root, None).context("Failed to copy file")?;
-        }
-
-        // Mark used file as resource
-        writer.resources.mark(self.file.clone());
-
         Ok(())
     }
+}
 
-    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
+#[typetag::serde(name = "file")]
+impl Installable for FileJob {
+    fn build(&self, env: &JobEnvironment) -> JobResult<BuiltJob> {
+        let mut built = BuiltJob::new();
+
+        // Get and prepare location
         let mut target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
+        built.change(Box::new(ClearChange::new(target.clone(), false)));
 
-        if !target.exists() {
-            // File was already removed
-            return Err(Error::msg("Cannot revert file since it was removed"));
-        }
+        // deploy file to location
+        self.deploy(target, env, &mut built)?;
 
-        // Remove managed file
-        info!("Removing file at target location");
-        env.shell.remove(&target, self.root.unwrap_or(false), None).context("Failed to remove installed file")?;
+        built.root = self.root.unwrap_or_default();
 
-        if let Some(original) = reader.cache.retrieve("original") {
-            // Restore original file
-            info!("Restoring original file");
-            env.shell.copy(&original, &target, self.root.unwrap_or(false), None).context("Failed to restore original file")?;
-        }
-
-        Ok(())
+        Ok(built)
     }
 
-    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+    fn partial(&self, old: &dyn Installable, previous: &BuiltJob, env: &JobEnvironment) -> Option<JobResult<BuiltJob>> {
         let old = old.as_any().downcast_ref::<Self>()?;
 
-        // Uninstall old file if necessary
+        // reinstall whole if location changed
         if self.location != old.location {
-            old.uninstall(env, reader).unwrap_or_else(|e| warn!("{e}"));
-        }
-        
-        // Install new file
-        if let Err(e) = self.install(env, writer) {
-            return Some(Err(e));
-        }
-        
-        // Make sure that the original file is not overwritten if updating at the same location
-        if self.location == old.location {
-            writer.cache.undo_cache("original");
+            return None;
         }
 
-        Some(Ok(()))
+        // update installation
+        let mut built = BuiltJob::new();
+
+        // prepare location but keep cache
+        let target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
+        built.change(Box::new(ClearChange::new(target.clone(), true)));
+
+        // deploy file to location
+        self.deploy(target, env, &mut built)?;
+
+        built.root = self.root.unwrap_or_default();
+
+        Some(Ok(built))
     }
 
     fn construct_title(&self) -> String {
         let action = self.link.unwrap_or(false);
         format!("{} the file '{}' to its target location",
-            if action { "Linking" } else { "Copying" },
-            &self.file
+                if action { "Linking" } else { "Copying" },
+                &self.file
         )
     }
 }

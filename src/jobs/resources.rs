@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use anyhow::Context;
 use chksum::chksum;
 use chksum::hash::SHA1;
@@ -77,4 +77,24 @@ impl ResourceFile {
 
         return Ok(self.checksum == checksum)
     }
+}
+
+pub struct ResourceItem {
+    /// path the file is located at
+    path: PathBuf,
+    /// whether the checksum was drawn imminently
+    imminent: bool,
+    /// checksum of installed version
+    checksum: String
+}
+
+impl ResourceItem {
+    pub fn remove_me() -> Self {
+        Self {
+            path: Default::default(),
+            imminent: false,
+            checksum: "".to_string(),
+        } 
+    }
+    
 }

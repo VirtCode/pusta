@@ -1,8 +1,6 @@
-use std::path::PathBuf;
-use anyhow::{Context, Error};
-use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
+use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult, load_resource, process_variables};
+use crate::module::transaction::change::ScriptChange;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct ScriptJob {
@@ -17,56 +15,50 @@ pub struct ScriptJob {
 
 #[typetag::serde(name = "script")]
 impl Installable for ScriptJob {
+    fn build(&self, env: &JobEnvironment) -> JobResult<BuiltJob> {
+        let mut built = BuiltJob::new();
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
-
-        // Create path to script
-        let mut path = env.module_path.clone();
-        path.push(&self.install);
-        if !path.exists() { return Err(Error::msg(format!("Script ('{}') does not exist", path.to_string_lossy()))) }
-
-        let mut running_directory = env.module_path.clone();
-        if let Some(path) = self.running_directory.as_ref() { running_directory.push(shellexpand::tilde(path).as_ref()) }
-
-        info!("Launching install script file");
-        // Prepare and run script (unchecked because in own directory)
-        env.shell.unchecked.make_executable(&path, false, None).context("Failed to make script executable")?; // no root and running directory because the file is in the pusta repo
-        // TODO: Process variables
-        env.shell.run_script(&path, self.root.unwrap_or(false), self.show_output.unwrap_or(true), Some(&running_directory)).context("Script execution failed")?;
-
-        // Cache uninstall file
-        if let Some(uninstall) = &self.uninstall {
-            writer.cache.cache_own(env, uninstall, "uninstall");
+        // calculate running directory
+        let mut running_directory = env.path.clone();
+        if let Some(path) = self.running_directory.as_ref() {
+            running_directory.push(shellexpand::tilde(path).as_ref());
         }
 
-        // Mark installed file as resource
-        writer.resources.mark(self.install.clone());
+        // process install script
+        let install = {
+            let mut path = env.module_path.clone();
+            path.push(&self.install);
 
-        Ok(())
+            let install = load_resource(&path, env, &mut built)?;
+            process_variables(&install, env, &mut built)?
+        };
+
+        // process uninstall script
+        let uninstall = if let Some(uninstall) = &self.uninstall {
+            let mut path = env.module_path.clone();
+            path.push(uninstall);
+
+            let uninstall = load_resource(&path, env, &mut built)?;
+            Some(process_variables(&uninstall, env, &mut built)?)
+        } else { None };
+
+        built.change(Box::new(ScriptChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true))));
+
+        built.root = self.root.unwrap_or_default();
+
+        Ok(built)
     }
 
-    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
-
-        let mut running_directory = env.module_path.clone();
-        if let Some(path) = self.running_directory.as_ref() { running_directory.push(shellexpand::tilde(path).as_ref()) }
-
-        // Run uninstaller if present
-        if let Some(uninstall) = reader.cache.retrieve("uninstall") {
-            info!("Launching uninstaller script file");
-            env.shell.run_script(&uninstall, self.root.unwrap_or(false), self.show_output.unwrap_or(true), Some(&running_directory)).context("Failed to run uninstaller script")?;
-        }
-
-        Ok(())
-    }
-
-    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+    fn partial(&self, old: &dyn Installable, previous: &BuiltJob, env: &JobEnvironment) -> Option<JobResult<BuiltJob>> {
         let old = old.as_any().downcast_ref::<Self>()?;
 
-        if self.reinstall.unwrap_or_default() {
-           self.uninstall(env, reader).unwrap_or_else(|e| warn!("{e}"));
+        // force full reinstall if last job was set to do it
+        if old.reinstall.unwrap_or_default() {
+            return None;
         }
-        
-        Some(self.install(env, writer))
+
+        // just build the install otherwise
+        Some(self.build(env))
     }
 
     fn construct_title(&self) -> String {

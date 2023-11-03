@@ -117,6 +117,18 @@ impl Default for ConfigPackage {
     }
 }
 
+impl ConfigPackage {
+    pub fn create_install(&self, packages: &Vec<String>) -> String {
+        let packages = packages.join(" ");
+        self.install.clone().replace("%PACKAGE%", &packages)
+    }
+
+    pub fn create_remove(&self, packages: &Vec<String>) -> String {
+        let packages = packages.join(" ");
+        self.remove.clone().replace("%PACKAGE%", &packages)
+    }
+}
+
 /// This enum represents a strategy used to confirm changes to the system
 #[derive(Deserialize, Clone)]
 pub enum ConfirmStrategy {

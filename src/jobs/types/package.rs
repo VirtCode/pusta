@@ -3,7 +3,8 @@ use anyhow::Error;
 use dyn_eq::DynEq;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
+use crate::jobs::{BuiltJob, Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment, JobResult};
+use crate::module::transaction::change::RunChange;
 
 /// This job installs a package from the system
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -20,36 +21,54 @@ impl PackageJob {
 #[typetag::serde(name = "package")]
 impl Installable for PackageJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
+    fn build(&self, env: &JobEnvironment) -> JobResult<BuiltJob> {
+        let mut built = BuiltJob::new();
+
         let names = self.name_vec();
+        built.change(Box::new(RunChange::new(
+            env.package_config.create_install(&names),
+            Some(env.package_config.create_remove(&names)),
+            env.path.clone(), true)));
 
-        env.shell.install(names)?;
+        built.root = env.package_config.root;
 
-        Ok(())
+        Ok(built)
     }
 
-    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
-        let names = self.name_vec();
-
-        env.shell.uninstall(names)?;
-
-        Ok(())
-    }
-
-    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+    fn partial(&self, old: &dyn Installable, previous: &BuiltJob, env: &JobEnvironment) -> Option<JobResult<BuiltJob>> {
         let old = old.as_any().downcast_ref::<Self>()?;
 
         // Compare packages
         let old = old.name_vec();
         let new = self.name_vec();
 
-        // Remove removed
-        let uninstall: Vec<String> = old.iter().filter(|s| !new.contains(*s)).cloned().collect();
-        env.shell.uninstall(uninstall).unwrap_or_else(|e| warn!("Couldn't uninstall removed packages properly: {e}"));
-
-        // Install new
+        let remove: Vec<String> = old.iter().filter(|s| !new.contains(*s)).cloned().collect();
         let install: Vec<String> = new.iter().filter(|s| !old.contains(*s)).cloned().collect();
-        Some(env.shell.install(install))
+
+        let mut built = BuiltJob::new();
+
+        // remove removed modules
+        if (!remove.is_empty()) {
+            if let Err(e) = built.change(Box::new(RunChange::new(
+                env.package_config.create_install(&remove),
+                None, env.path.clone(), true))) {
+
+                return Some(Err(e));
+            }
+        }
+
+        // install new modules
+        if let Err(e) = built.change(Box::new(RunChange::new(
+            env.package_config.create_install(&install),
+            Some(env.package_config.create_remove(&new)),
+            env.path.clone(), true))) {
+
+            return Some(Err(e));
+        }
+
+        built.root = env.package_config.root;
+
+        Some(Ok(built))
     }
 
     fn construct_title(&self) -> String {

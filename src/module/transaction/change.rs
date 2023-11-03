@@ -9,6 +9,8 @@ use fs_extra::dir::CopyOptions;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use crate::module::transaction::shell;
+use crate::registry::cache::default_cache_dir;
+
 
 /// Represents an atomic change
 #[typetag::serde(tag = "type")]
@@ -36,6 +38,16 @@ pub struct ChangeRuntime {
 impl ChangeRuntime {
     /// Caches a file for later restoration
     fn cache(&self, path: &Path) -> Result<PathBuf, ChangeError> {
+        let target = self.cache_dir(path);
+
+        fs_extra::copy_items(&[path], &target, &CopyOptions::default())
+            .map_err(|e| ChangeError::cache(path.to_owned(), target.clone(), e.to_string()))?;
+
+        Ok(target)
+    }
+
+    /// Creates a path reference for an inherit cache
+    fn cache_dir(&self, path: &Path) -> PathBuf {
         // calculate hash for target location
         let result = chksum::hash::hash::<SHA1, _>(path.to_string_lossy().to_string());
 
@@ -44,10 +56,7 @@ impl ChangeRuntime {
         target.push(TEMP_CACHE);
         target.push(result.to_hex_lowercase());
 
-        fs_extra::copy_items(&[path], &target, &CopyOptions::default())
-            .map_err(|e| ChangeError::cache(path.to_owned(), target.clone(), e.to_string()))?;
-
-        Ok(target)
+        target
     }
 
     /// Stores a string in a temporary file
@@ -151,14 +160,17 @@ pub struct ClearChange {
     /// File to clear
     file: PathBuf,
 
+    /// Whether to inherit cache from previous runs
+    inherit: bool,
+
     /// Cache where the cleared file will be stored
     cache: Option<PathBuf>
 }
 
 impl ClearChange {
-    pub fn new(file: PathBuf) -> Self {
+    pub fn new(file: PathBuf, inherit: bool) -> Self {
         Self {
-            file,
+            file, inherit,
             cache: None
         }
     }
@@ -167,6 +179,17 @@ impl ClearChange {
 #[typetag::serde]
 impl AtomicChange for ClearChange {
     fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+
+        /// Maybe inherit cache
+        if self.inherit {
+            let cached = runtime.cache_dir(&self.file);
+
+            if cached.exists() {
+                self.cache = Some(cached)
+            }
+
+            return Ok(())
+        }
 
         /// Only cache the file if it exists
         if self.file.exists() {

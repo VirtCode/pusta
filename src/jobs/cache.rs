@@ -125,3 +125,8 @@ impl JobCacheReader {
         }
     }
 }
+
+/// This struct represents a file on the system which has been cached by pusta for non-imminent restoration
+pub struct CacheItem {
+    path: PathBuf
+}

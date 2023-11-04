@@ -1,8 +1,7 @@
-use std::path::{Path, PathBuf};
-use anyhow::Context;
-use log::{debug, info, warn};
-use crate::jobs::{BuiltJob, Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment, JobError, JobResult, process_variables};
+use std::path::Path;
+use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobError, JobResult};
 use serde::{Deserialize, Serialize};
+use crate::jobs::helper::process_variables;
 use crate::module::transaction::change::RunChange;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -29,9 +28,9 @@ impl Installable for CommandJob {
         }
 
         // create commands
-        let install = process_variables(&self.install, env, &mut built)?;
+        let install = process_variables(&self.install, Path::new("install-command"), env, &mut built)?;
         let uninstall = if let Some(uninstall) = &self.uninstall {
-            Some(process_variables(uninstall, env, &mut built)?)
+            Some(process_variables(uninstall, Path::new("uninstall-command"), env, &mut built)?)
         } else { None };
 
         // add change

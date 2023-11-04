@@ -1,5 +1,7 @@
+use std::path::Path;
 use serde::{Deserialize, Serialize};
-use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult, load_resource, process_variables};
+use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
+use crate::jobs::helper::{process_variables, resource_load};
 use crate::module::transaction::change::ScriptChange;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -26,20 +28,18 @@ impl Installable for ScriptJob {
 
         // process install script
         let install = {
-            let mut path = env.module_path.clone();
-            path.push(&self.install);
+            let path = Path::new(&self.install);
 
-            let install = load_resource(&path, env, &mut built)?;
-            process_variables(&install, env, &mut built)?
+            let install = resource_load(path, env, &mut built)?;
+            process_variables(&install, path, env, &mut built)?
         };
 
         // process uninstall script
-        let uninstall = if let Some(uninstall) = &self.uninstall {
-            let mut path = env.module_path.clone();
-            path.push(uninstall);
+        let uninstall = if let Some(uninstall_path) = &self.uninstall {
+            let path = Path::new(&self.install);
 
-            let uninstall = load_resource(&path, env, &mut built)?;
-            Some(process_variables(&uninstall, env, &mut built)?)
+            let uninstall = resource_load(path, env, &mut built)?;
+            Some(process_variables(&uninstall, path, env, &mut built)?)
         } else { None };
 
         built.change(Box::new(ScriptChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true))));

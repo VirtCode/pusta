@@ -1,13 +1,12 @@
 use anyhow::anyhow;
-use log::{error, info};
+use log::{error};
 use crate::module::install::{InstalledModule, InstallReason};
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::output::{prompt_choice_module, prompt_yn};
 use crate::registry::depend::ChangeType::{Real, Marker};
 use crate::registry::index::{Index, Indexable};
-use crate::registry::Registry;
-use crate::registry::transaction::ModuleTransaction;
+use crate::registry::install::Gathered;
 
 /// This struct can resolve and free dependencies for multiple modules and perform them on a module basis, performing rollbacks when needed.
 /// Warning: understanding the logic implemented here may cause headaches
@@ -137,16 +136,22 @@ impl<'a> DependencyResolver<'a> {
         self.add.iter().any(|q| q.dependencies().iter().any(|d| dep.does_provide(d)))
     }
 
-    /// Creates transactions for the resolved dependencies
-    pub fn create_transactions(&self) -> Vec<ModuleTransaction> {
-        let mut transactions = vec![];
+    pub fn gather(&self) -> Vec<Gathered<'a>> {
+        let mut gathered = vec![];
 
         for change in &self.remove {
             if let Real(module) = change.change {
                 // Skip those which were installed again
                 if self.add.iter().any(|c| c.qualifier() == change.qualifier()) { continue; }
 
-                transactions.push(ModuleTransaction::Remove(module.clone()))
+                // List removed modules which had this module as a dependency as because
+                let because: Vec<ModuleQualifier> = self.remove.iter().filter_map(|m| {
+                    if m.dependencies().iter().any(|dep| module.qualifier().does_provide(dep))  {
+                        Some(m.qualifier().clone())
+                    } else { None }
+                }).collect();
+
+                gathered.push(Gathered::Remove { module, because });
             }
         }
 
@@ -156,11 +161,25 @@ impl<'a> DependencyResolver<'a> {
                 if self.remove.iter().any(|m| *m.qualifier() == module.qualifier) &&
                     self.installed.get(module.qualifier()).is_some() { continue; }
 
-                transactions.push(ModuleTransaction::Install(module.clone(), InstallReason::Dependency))
+                // List installed modules which had this module as a dependency as because
+                let because: Vec<ModuleQualifier> = self.add.iter().filter_map(|m| {
+                    if m.dependencies().iter().any(|dep| module.qualifier().does_provide(dep))  {
+                        Some(m.qualifier().clone())
+                    } else { None }
+                }).collect();
+
+                // List installed modules which are a dependency of this one as dependencies
+                let depends: Vec<ModuleQualifier> = self.add.iter().filter_map(|m| {
+                    if module.dependencies().iter().any(|dep| m.qualifier().does_provide(dep))  {
+                        Some(m.qualifier().clone())
+                    } else { None }
+                }).collect();
+
+                gathered.push(Gathered::Install { module, depends, because })
             }
         }
 
-        transactions
+        gathered
     }
 }
 

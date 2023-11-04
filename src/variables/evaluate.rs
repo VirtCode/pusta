@@ -1,15 +1,37 @@
 use std::ops::Range;
-use chksum::hash::sha1::state::State;
-use log::info;
 use crate::variables::context::{Context, Expression, ExpressionContent, Statement, StatementType};
 use crate::variables::{Value, Variable, VariableError};
 use crate::variables::modifier::evaluate_modifier;
 
+#[derive(Default)]
+pub struct VariableEvalCounter {
+    variables: Vec<String>
+}
+
+impl VariableEvalCounter {
+    /// Marks a variable as used
+    fn used(&mut self, used: &str) {
+        self.variables.push(used.into());
+    }
+
+    /// Returns all deduplicated variable usages
+    pub fn usages(mut self: Self) -> Vec<String> {
+
+        // remove variables which are local lists
+        self.variables.retain(|e| !e.starts_with('_'));
+
+        self.variables.dedup();
+        self.variables
+    }
+}
+
 /// Evaluates a context consisting of many statements
-pub fn evaluate(input: &str, context: &Context, variables: &Variable) -> Result<String, VariableError> {
+pub fn evaluate(input: &str, context: &Context, variables: &Variable, counter: &mut VariableEvalCounter) -> Result<String, VariableError> {
+    let mut counter = VariableEvalCounter::default();
+
     let mut evals = context.statements.iter().map(|s| {
         Ok((&s.location,
-            evaluate_statement(input, s, variables)?))
+            evaluate_statement(input, s, variables, &mut counter)?))
     }).collect::<Result<Vec<(&Range<usize>, String)>, VariableError>>()?;
 
     evals.sort_by(|(l1, _), (l2, _)| l1.start.cmp(&l2.start));
@@ -30,13 +52,13 @@ pub fn evaluate(input: &str, context: &Context, variables: &Variable) -> Result<
 }
 
 /// Evaluates a single statement
-fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable) -> Result<String, VariableError> {
+fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable, counter: &mut VariableEvalCounter) -> Result<String, VariableError> {
     Ok(match &statement.content {
         StatementType::Expression { content } => {
-            evaluate_expression(content, variables)?.to_string()
+            evaluate_expression(content, variables, counter)?.to_string()
         }
         StatementType::Conditional { condition, context_true, context_false } => {
-            let condition = match evaluate_expression(condition, variables)? {
+            let condition = match evaluate_expression(condition, variables, counter)? {
                 Value::Boolean(b) => {b}
                 v => {
                     return Err(VariableError {
@@ -49,13 +71,13 @@ fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable) 
             };
 
             match (condition, context_false) {
-                (true, _) => { evaluate(input, context_true, variables)? }
-                (false, Some(context_false)) => { evaluate(input, context_false, variables)? }
+                (true, _) => { evaluate(input, context_true, variables, counter)? }
+                (false, Some(context_false)) => { evaluate(input, context_false, variables, counter)? }
                 (false, None) => { "".to_string() }
             }
         }
         StatementType::List { expression, context } => {
-            let items = evaluate_expression_for_list(expression, variables)?;
+            let items = evaluate_expression_for_list(expression, variables, counter)?;
 
             let mut variables_custom = variables.clone(); // TODO: Implement this in a better way
 
@@ -68,7 +90,7 @@ fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable) 
                     _ => {}
                 }
 
-                string += &evaluate(input, context, &variables_custom)?;
+                string += &evaluate(input, context, &variables_custom, counter)?;
             }
 
             string
@@ -77,11 +99,12 @@ fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable) 
 }
 
 /// Evaluates the expression for a list. This should only be temporary, because modifiers should support lists and objects in the future too.
-fn evaluate_expression_for_list<'a>(expr: &Expression, variables: &'a Variable) -> Result<&'a Vec<Variable>, VariableError> {
+fn evaluate_expression_for_list<'a>(expr: &Expression, variables: &'a Variable, counter: &mut VariableEvalCounter) -> Result<&'a Vec<Variable>, VariableError> {
     match (&expr.content, expr.modifiers.is_empty()) {
         (ExpressionContent::Variable(name), true) => {
+            counter.used(&name);
             match variables.find(&name) {
-                (Some(Variable::List(list))) => { Ok(list) }
+                (Some(Variable::List(list))) => { Ok(&list) }
                 _ => {
                    return Err(VariableError {
                        title: "unexpected variable type for list".to_string(),
@@ -104,7 +127,7 @@ fn evaluate_expression_for_list<'a>(expr: &Expression, variables: &'a Variable) 
 }
 
 /// Evaluates an expression to a value
-fn evaluate_expression(expr: &Expression, variables: &Variable) -> Result<Value, VariableError> {
+fn evaluate_expression(expr: &Expression, variables: &Variable, counter: &mut VariableEvalCounter) -> Result<Value, VariableError> {
 
     // evaluate content
     let mut state = match &expr.content {
@@ -112,6 +135,7 @@ fn evaluate_expression(expr: &Expression, variables: &Variable) -> Result<Value,
         ExpressionContent::LiteralNumber(n) => { Value::Number(*n) }
         ExpressionContent::LiteralBool(b) => { Value::Boolean(*b) }
         ExpressionContent::Variable(name) => {
+            counter.used(name);
             let var = variables.find(name);
 
             match var {
@@ -138,7 +162,7 @@ fn evaluate_expression(expr: &Expression, variables: &Variable) -> Result<Value,
 
     // evaluate modifiers
     for x in &expr.modifiers {
-        let parameters = x.parameters.iter().map(|e| evaluate_expression(e, variables)).collect::<Result<Vec<_>, VariableError>>()?;
+        let parameters = x.parameters.iter().map(|e| evaluate_expression(e, variables, counter)).collect::<Result<Vec<_>, VariableError>>()?;
 
         match evaluate_modifier(&x.name, state, parameters) {
             Some(result) => {

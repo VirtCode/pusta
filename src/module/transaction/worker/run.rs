@@ -39,16 +39,10 @@ fn worker(socket_id: Uuid, id: Uuid) -> anyhow::Result<()> {
 
     while let Ok(request) = read_event(&mut socket) {
         match request {
-            WorkerRequest::Load(c) => {
-                for (k,v) in c { changes.insert(k,v); }
-            }
-            WorkerRequest::Request(id, apply) => {
-                let response = if let Some(change) = changes.get_mut(&id) {
+            WorkerRequest::Request(change, apply) => {
+                let response =
                     if apply { change.apply(&runtime) }
-                    else { change.revert(&runtime) }
-                } else {
-                    Err(ChangeError::fatal("change was not loaded onto worker".to_string()))
-                };
+                    else { change.revert(&runtime) };
 
                 write_event(&mut socket, WorkerResponse::Response(response))?;
             }

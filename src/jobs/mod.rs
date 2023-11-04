@@ -1,21 +1,17 @@
 mod types;
-pub mod cache;
-pub mod resources;
+mod helper;
 
-use std::fs;
-use std::os::unix::raw::time_t;
+use std::fs::File;
+use std::io::Error;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
-use log::{error, warn};
-use crate::module::install::shell::Shell;
+use chksum::chksum;
+use chksum::hash::SHA1;
 use serde::{Deserialize, Serialize};
 use crate::config::ConfigPackage;
-use crate::jobs::cache::{CacheItem, JobCacheReader, JobCacheWriter};
-use crate::jobs::resources::{JobResources, ResourceFile, ResourceItem};
 use crate::jobs::types::Installable;
-use crate::module::install::checked::CheckedShell;
 use crate::module::transaction::change::AtomicChange;
 use crate::variables::{Variable, VariableError};
+use crate::variables::evaluate::VariableEvalCounter;
 
 /// This is the environment provided to every installable
 pub struct JobEnvironment<'a> {
@@ -24,14 +20,45 @@ pub struct JobEnvironment<'a> {
     pub package_config: ConfigPackage
 }
 
-/// This struct contains mechanisms used during installation
-pub struct InstallWriter {
-    pub cache: JobCacheWriter,
-    pub resources: JobResources
+/// this marks a resource used by the job
+pub struct ResourceItem {
+    /// relative path the file is located at
+    path: PathBuf,
+    /// checksum of installed version
+    checksum: String
 }
 
-pub struct InstallReader {
-    pub cache: JobCacheReader
+impl ResourceItem {
+    /// creates the item and calculates the checksum
+    pub fn create(path: PathBuf, parent: &Path) -> JobResult<Self> {
+        let mut file = parent.to_owned();
+        file.push(&path);
+
+        let handle = File::open(file).map_err(|e| JobError::Other("could not open file to calculate checksum".into(), e.into()))?;
+        let checksum = chksum::<SHA1, _>(handle).map_err(|e| JobError::Other("could not calculate checksum".into(), e.into()))?.to_hex_lowercase();
+
+        Ok(Self { path, checksum })
+    }
+
+    /// checks the checksum compared to the new one
+    pub fn changed(&self, parent: &Path) -> bool {
+        let mut file = parent.to_owned();
+        file.push(&self.path);
+
+        File::open(file)
+            .and_then(chksum::<SHA1, _>)
+            .map(|c| c.to_hex_lowercase() == self.checksum)
+            .unwrap_or(false)
+    }
+
+}
+
+type JobResult<T> = Result<T, JobError>;
+
+pub enum JobError {
+    Variable(VariableError, String, PathBuf),
+    Resources(PathBuf, Error),
+    Other(String, anyhow::Error)
 }
 
 /// This struct represents a job which can be specified to be installed for a module
@@ -51,25 +78,6 @@ impl Job {
     /// Returns the title of the job
     pub fn title(&self) -> String {
         self.title.clone().unwrap_or_else(|| self.job.construct_title())
-    }
-
-    /// Returns whether the job is optional
-    pub fn optional(&self) -> bool {
-        self.optional.unwrap_or(false)
-    }
-
-    /// Installs the job
-    pub fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
-        self.job.install(env, writer)
-    }
-
-    /// Uninstalls the job
-    pub fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
-        self.job.uninstall(env, reader)
-    }
-
-    pub fn update(&self, old: &Job, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
-        self.job.update(old.job.as_ref(), env, writer, reader)
     }
 
     pub fn build(&self, env: &JobEnvironment) -> Result<BuiltJob, JobError> {
@@ -92,9 +100,9 @@ impl Job {
 
         Some(built)
     }
-
 }
 
+/// this struct contains all information about a built job
 pub struct BuiltJob {
     /// title of the job
     pub title: String,
@@ -107,57 +115,48 @@ pub struct BuiltJob {
     /// changes to be made to the system
     pub changes: Vec<Box<dyn AtomicChange>>,
 
-    /// files to be cached beforehand
-    pub caches: Vec<CacheItem>,
     /// resources on which the job depends
     pub resources: Vec<ResourceItem>,
     /// variables which were used during build
     pub variables: Vec<String>
 }
 
-type JobResult<T> = Result<T, JobError>;
-
-enum JobError {
-    Variable(VariableError),
-    Resources(anyhow::Error)
-}
-
 impl BuiltJob {
 
+    /// creates an empty build
     pub fn new() -> Self {
         Self {
             title: "unknown job".to_string(),
             optional: false,
             root: false,
             changes: vec![],
-            caches: vec![],
             resources: vec![],
             variables: vec![]
         }
     }
 
+    /// adds a change to the build
     pub fn change(&mut self, change: Box<dyn AtomicChange>) {
         self.changes.push(change);
     }
+
+    /// marks variables used by the job
+    pub fn use_variables(&mut self, counter: VariableEvalCounter) {
+        self.variables.append(&mut counter.usages());
+
+        // deduplicate because same variables could've already been used by other resource
+        self.variables.dedup();
+    }
+
+    /// marks a resource as used by the job
+    pub fn mark_resource(&mut self, item: ResourceItem) {
+        self.resources.push(item);
+    }
+
+    /// did variables change
+    pub fn change_variables(&self, old: &Variable, new: &Variable) -> bool {
+        self.variables.iter().any(|k| old.find(k) != new.find(k))
+    }
 }
 
-// loads a resource from file to a string and throws an error if not found
-pub fn load_resource(file: &Path, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<String> {
-    Ok(String::new())
-}
-
-// checks a resource whether it is a file or not
-pub fn check_resource(file: &Path, env: &JobEnvironment) -> JobResult<bool> {
-    return Ok(false)
-}
-
-// checks that a resource exists and throws an error otherwise
-pub fn mark_resource(file: &Path, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<()> {
-    Ok(())
-}
-
-// processes the variables inside a given string, and throws an error if it could not be resolved
-pub fn process_variables(string: &str, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<String> {
-    Ok(string.to_owned())
-}
 

@@ -1,4 +1,4 @@
-use std::{env, thread};
+use std::{env, fs, thread};
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 use std::process::{Command, ExitStatus, Stdio};
@@ -79,3 +79,4 @@ fn read_output_parallel<T: Read + Send + 'static>(output: T, print: bool, prefix
         buffer
     })
 }
+

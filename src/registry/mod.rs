@@ -2,6 +2,7 @@ pub mod index;
 pub mod cache;
 mod transaction;
 mod depend;
+mod install;
 
 use std::ops::Deref;
 use std::os::unix::raw::time_t;

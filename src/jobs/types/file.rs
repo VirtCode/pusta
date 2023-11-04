@@ -1,7 +1,7 @@
-use std::any::{Any, TypeId};
 use std::path::{PathBuf};
 use serde::{Deserialize, Serialize};
-use crate::jobs::{BuiltJob, check_resource, Installable, JobEnvironment, JobResult, load_resource, mark_resource, process_variables};
+use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
+use crate::jobs::helper::{process_variables, resource_dir, resource_load, resource_mark};
 use crate::module::transaction::change::{ClearChange, CopyChange, LinkChange, WriteChange};
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
@@ -19,23 +19,23 @@ impl FileJob {
     fn deploy(&self, target: PathBuf, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<()>{
         // Get source file
         let source = PathBuf::from(&self.file);
-        let is_dir = check_resource(&source, env)?;
+        let is_dir = resource_dir(&source, env)?;
 
         // deploy file depending on link and dir status
         match (self.link.unwrap_or_default(), is_dir) {
             (false, false) => {
-                let resource = load_resource(&source, env, built)?;
-                let resource = process_variables(&resource, env, built)?;
+                let resource = resource_load(&source, env, built)?;
+                let resource = process_variables(&resource, &source, env, built)?;
 
                 built.change(Box::new(WriteChange::new(resource, target)));
             },
             (false, true) => {
-                mark_resource(&source, env, built)?;
+                resource_mark(&source, env, built)?;
 
                 built.change(Box::new(CopyChange::new(target, source)));
             },
             (true, _) => {
-                mark_resource(&source, env, built)?;
+                resource_mark(&source, env, built)?;
 
                 built.change(Box::new(LinkChange::new(target, source)));
             }

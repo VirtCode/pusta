@@ -5,21 +5,23 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::SystemTime;
 use chksum::hash::SHA1;
+use dyn_clone::clone_trait_object;
 use fs_extra::dir::CopyOptions;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use crate::module::transaction::shell;
 use crate::registry::cache::default_cache_dir;
 
+clone_trait_object!(Installable);
 
 /// Represents an atomic change
 #[typetag::serde(tag = "type")]
-pub trait AtomicChange {
+pub trait AtomicChange: Clone {
     /// Applies the atomic change
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult;
+    fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult;
 
     /// Reverts the atomic change
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult;
+    fn revert(&self, runtime: &ChangeRuntime) -> ChangeResult;
 
     /// Returns a description of the change, based on its data
     fn describe(&self) -> String;
@@ -37,13 +39,20 @@ pub struct ChangeRuntime {
 
 impl ChangeRuntime {
     /// Caches a file for later restoration
-    fn cache(&self, path: &Path) -> Result<PathBuf, ChangeError> {
+    fn cache_save(&self, path: &Path) -> Result<(), ChangeError> {
         let target = self.cache_dir(path);
 
         fs_extra::copy_items(&[path], &target, &CopyOptions::default())
-            .map_err(|e| ChangeError::cache(path.to_owned(), target.clone(), e.to_string()))?;
+            .map_err(|e| ChangeError::cache(path.to_owned(), target, e.to_string()))?;
 
-        Ok(target)
+        Ok(())
+    }
+
+    fn cache_load(&self, path: &Path) -> Option<PathBuf> {
+        let target = self.cache_dir(path);
+
+        if target.exists() { Some(target) }
+        else { None }
     }
 
     /// Creates a path reference for an inherit cache
@@ -153,59 +162,80 @@ impl ChangeError {
     }
 }
 
+impl ToString for ChangeError {
+    fn to_string(&self) -> String {
+        match self {
+            ChangeError::WorkerFatal { message } => {
+                format!("Fatal error occurred: {message}")
+            }
+            ChangeError::Filesystem { message, cause, path } => {
+                format!("Could not use filesystem at '{path}', {message}, caused by: {cause}")
+            }
+            ChangeError::Cache { path, target_path, message } => {
+                format!("Could not cache file '{path}' to '{target_path}', because of: {message}")
+            }
+            ChangeError::Temp { content, target_path, message } => {
+                format!("Could not store file temporarily at '{target_path}', because of {message}")
+            }
+            ChangeError::CommandFatal { command, message } => {
+                format!("Fatal error occurred when running command: {message}\nCommand run was '{command}'")
+            }
+            ChangeError::Command { command, output, error, exit_code } => {
+                format!("Command did not run successfully and exited with code {exit_code}\nCommand was: {command}\nConsole output was:\n{output}\nError output was:\n{error}")
+            }
+            ChangeError::ScriptFatal { script, message } => {
+                format!("Fatal error occurred when running script: {message}")
+            }
+            ChangeError::Script { script, output, error, exit_code } => {
+                format!("Script did not run successfully and exited with code {exit_code}\nScript was:\n{script}\nConsole output was:\n{output}\nError output was:\n{error}")
+            }
+        }
+    }
+}
+
 
 /// This change cleans the spot where a file is going to be put
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ClearChange {
     /// File to clear
     file: PathBuf,
 
     /// Whether to inherit cache from previous runs
     inherit: bool,
-
-    /// Cache where the cleared file will be stored
-    cache: Option<PathBuf>
 }
 
 impl ClearChange {
     pub fn new(file: PathBuf, inherit: bool) -> Self {
-        Self {
-            file, inherit,
-            cache: None
-        }
+        Self { file, inherit, }
     }
 }
 
 #[typetag::serde]
 impl AtomicChange for ClearChange {
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
+        // Skip everything if inheriting cache from parent
+        if !self.inherit {
 
-        /// Maybe inherit cache
-        if self.inherit {
-            let cached = runtime.cache_dir(&self.file);
+            // Only cache the file if it exists, create parent dir otherwise
+            if self.file.exists() {
+                runtime.cache_save(&self.file)?;
 
-            if cached.exists() {
-                self.cache = Some(cached)
+                fs_extra::remove_items(&[&self.file])
+                    .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to delete original file or directory".into(), e.to_string()))?;
+            } else if let Some(parent) = self.file.parent() {
+
+                fs::create_dir_all(parent)
+                    .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to create parent directory".into(), e.to_string()))?;
             }
-
-            return Ok(())
-        }
-
-        /// Only cache the file if it exists
-        if self.file.exists() {
-            self.cache = Some(runtime.cache(&self.file)?);
-
-            fs_extra::remove_items(&[&self.file])
-                .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to delete original file or directory".into(), e.to_string()))?;
         }
 
         Ok(())
     }
 
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn revert(&self, runtime: &ChangeRuntime) -> ChangeResult {
 
         // Only undo cache if it was cached
-        if let Some(cached) = &self.cache {
+        if let Some(cached) = runtime.cache_load(&self.file) {
             fs_extra::copy_items(&[&cached], &self.file, &CopyOptions::default())
                 .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to restore original file".into(), e.to_string()))?;
         }
@@ -223,7 +253,7 @@ impl AtomicChange for ClearChange {
 }
 
 /// This change inserts some text into a file somewhere
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct WriteChange {
     /// Text to insert into a file
     text: String,
@@ -239,13 +269,13 @@ impl WriteChange {
 
 #[typetag::serde]
 impl AtomicChange for WriteChange {
-    fn apply(&mut self, runtime: &ChangeRuntime) -> Result<(), ChangeError> {
+    fn apply(&self, runtime: &ChangeRuntime) -> Result<(), ChangeError> {
         // Write the file
         fs_extra::file::write_all(&self.file, &self.text)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to write to file".into(), e.to_string()))
     }
 
-    fn revert(&mut self, runtime: &ChangeRuntime) -> Result<(), ChangeError> {
+    fn revert(&self, runtime: &ChangeRuntime) -> Result<(), ChangeError> {
         // Delete the file
         fs_extra::remove_items(&[&self.file])
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to delete file".into(), e.to_string()))
@@ -261,7 +291,7 @@ impl AtomicChange for WriteChange {
 }
 
 /// This change copies a file somewhere
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CopyChange {
     /// File to copy to
     file: PathBuf,
@@ -277,7 +307,7 @@ impl CopyChange {
 
 #[typetag::serde]
 impl AtomicChange for CopyChange {
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Copy files
         fs_extra::copy_items(&[&self.source], &self.file, &CopyOptions::default())
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to copy file or directory to that location".into(), e.to_string()))?;
@@ -285,7 +315,7 @@ impl AtomicChange for CopyChange {
         Ok(())
     }
 
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn revert(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Delete copied files
         fs_extra::remove_items(&[&self.file])
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to remove copied file or directory".into(), e.to_string()))
@@ -301,7 +331,7 @@ impl AtomicChange for CopyChange {
 }
 
 /// This change links a file to a location
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LinkChange {
     /// File to place link at
     file: PathBuf,
@@ -317,13 +347,13 @@ impl LinkChange {
 
 #[typetag::serde]
 impl AtomicChange for LinkChange {
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Link files
         symlink(&self.source, &self.file)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to create symlink there".into(), e.to_string()))
     }
 
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn revert(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Delete symlink
         fs::remove_file(&self.file)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to remove symlink".into(), e.to_string()))
@@ -339,7 +369,7 @@ impl AtomicChange for LinkChange {
 }
 
 /// This change runs a command on the shell
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RunChange {
     /// Command to run when applying the change
     apply: String,
@@ -361,7 +391,7 @@ impl RunChange {
 
 #[typetag::serde]
 impl AtomicChange for RunChange {
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Run command on shell
         let result = shell::run_command(&self.apply, &self.dir, self.interactive)
             .map_err(|e| ChangeError::command_fatal(self.apply.clone(), e))?;
@@ -374,7 +404,7 @@ impl AtomicChange for RunChange {
         Ok(())
     }
 
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn revert(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // only revert if revert command is set
         if let Some(revert) = &self.revert {
             // Run command on shell
@@ -404,7 +434,7 @@ impl AtomicChange for RunChange {
 }
 
 /// This change runs a command on the shell
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ScriptChange {
     /// Script code to run when applying the change
     apply: String,
@@ -426,7 +456,7 @@ impl ScriptChange {
 
 #[typetag::serde]
 impl AtomicChange for ScriptChange {
-    fn apply(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Store file on disk
         let file = runtime.temp(&self.apply)?;
 
@@ -442,7 +472,7 @@ impl AtomicChange for ScriptChange {
         Ok(())
     }
 
-    fn revert(&mut self, runtime: &ChangeRuntime) -> ChangeResult {
+    fn revert(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // only revert if revert script is set
         if let Some(revert) = &self.revert {
             // Store file on disk

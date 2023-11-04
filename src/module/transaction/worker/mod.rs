@@ -127,61 +127,18 @@ impl WorkerPortal {
         Ok(())
     }
 
-    /// Loads a map of changes onto the workers for later execution
-    pub fn load(&mut self, changes: HashMap<Uuid, (bool, Box<dyn AtomicChange>)>) -> anyhow::Result<()>{
-        let mut non = HashMap::new();
-        let mut root = HashMap::new();
-
-        for (id, (as_root, change)) in changes {
-            if as_root { &mut root } else { &mut non }
-                .insert(id, change);
-        }
-
-        // load jobs
-        if !non.is_empty() {
-            self.load_to_worker(non, false)?;
-        }
-
-        if !root.is_empty() {
-            self.load_to_worker(root, true)?;
-        }
-
-        Ok(())
-    }
-
-    /// Loads a specific set of changes to a worker with the given privilege level
-    fn load_to_worker(&mut self, changes: HashMap<Uuid, Box<dyn AtomicChange>>, root: bool) -> anyhow::Result<()> {
+    /// Runs a change on the loaded worker
+    pub fn dispatch(&mut self, change: &Box<dyn AtomicChange>, root: bool, apply: bool) -> anyhow::Result<ChangeResult> {
         if let Some(worker) = self.workers.values_mut().find(|w| w.root == root) {
 
-            // Update job lexicon
-            for (id, _) in &changes{
-                self.changes.insert(id.clone(), worker.id.clone());
+            write_event(&mut worker.stream, WorkerRequest::Request(change, apply))?;
+
+            if let WorkerResponse::Response(result) = read_event(&mut worker.stream)? {
+                Ok(result)
+            } else {
+                Err(anyhow!("worker did not respond as expected"))
             }
-
-            write_event(&mut worker.stream, WorkerRequest::Load(changes))?;
-
-            Ok(())
-        } else {
-            return Err(anyhow!("could not find worker with sufficient (root: {root}) privileges to load change"))
-        }
-    }
-
-    /// Runs a change on the loaded worker
-    pub fn dispatch(&mut self, id: &Uuid, apply: bool) -> anyhow::Result<ChangeResult> {
-
-        let worker_id = self.changes.get(id)
-            .context("job was not loaded for any worker")?;
-
-        let worker = self.workers.get_mut(worker_id)
-            .context("worker where job was registered could not be found")?;
-
-        write_event(&mut worker.stream, WorkerRequest::Request(id.clone(), apply))?;
-
-        if let WorkerResponse::Response(result) = read_event(&mut worker.stream)? {
-            Ok(result)
-        } else {
-            Err(anyhow!("worker did not respond as expected"))
-        }
+        } else { Err(anyhow!("no worker present with required privileges"))}
     }
 }
 
@@ -192,9 +149,8 @@ enum WorkerResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-enum WorkerRequest {
-    Load(HashMap<Uuid, Box<dyn AtomicChange>>),
-    Request(Uuid, bool)
+enum WorkerRequest<'a> {
+    Request(&'a Box<dyn AtomicChange>, bool)
 }
 
 /// Writes an event from the view of the portal

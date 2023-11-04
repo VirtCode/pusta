@@ -20,6 +20,7 @@ pub mod repository;
 pub mod install;
 pub mod qualifier;
 pub mod transaction;
+mod installed;
 
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";

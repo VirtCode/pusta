@@ -64,10 +64,56 @@ impl ModuleQualifier {
         let name = self.name();
         !name.is_empty() && !name.contains('/')
     }
+
+    pub fn as_dep(&self) -> DependencyQualifier {
+        DependencyQualifier {
+            unique: Some(self.unique()),
+            name: Some(self.name().clone()),
+            provides: self.provide.clone()
+        }
+    }
 }
 
 impl PartialEq for ModuleQualifier {
     fn eq(&self, other: &Self) -> bool {
         self.unique() == other.unique()
+    }
+}
+
+pub struct DependencyQualifier {
+    unique: Option<String>,
+    name: Option<String>,
+    provides: Option<String>,
+}
+
+impl DependencyQualifier {
+    pub fn provide(target: &str) -> Self {
+        Self {
+            unique: None,
+            name: None,
+            provides: Some(target.to_owned())
+        }
+    }
+
+    fn does_provide(&self, other: &str) -> bool{
+        self.provides.map(|s| s.as_str()) == Some(other) ||
+            self.name.map(|s| s.as_str()) == Some(other) ||
+            self.unique.map(|s| s.as_str()) == Some(other)
+    }
+
+}
+
+impl PartialEq for DependencyQualifier {
+    fn eq(&self, other: &Self) -> bool {
+        if let Some(provides) = &other.provides {
+            if self.does_provide(&provides) { return true }
+        }
+        if let Some(name) = &other.name {
+            if self.does_provide(&name) { return true }
+        }
+        if let Some(unique) = &other.unique {
+            if self.does_provide(&unique) { return true }
+        }
+        false
     }
 }

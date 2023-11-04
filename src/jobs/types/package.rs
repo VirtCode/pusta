@@ -3,7 +3,7 @@ use anyhow::Error;
 use dyn_eq::DynEq;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use crate::jobs::{BuiltJob, Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment, JobResult};
+use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::module::transaction::change::RunChange;
 
 /// This job installs a package from the system
@@ -49,22 +49,17 @@ impl Installable for PackageJob {
 
         // remove removed modules
         if (!remove.is_empty()) {
-            if let Err(e) = built.change(Box::new(RunChange::new(
+            built.change(Box::new(RunChange::new(
                 env.package_config.create_install(&remove),
-                None, env.path.clone(), true))) {
+                None, env.path.clone(), true)));
 
-                return Some(Err(e));
-            }
         }
 
         // install new modules
-        if let Err(e) = built.change(Box::new(RunChange::new(
+        built.change(Box::new(RunChange::new(
             env.package_config.create_install(&install),
             Some(env.package_config.create_remove(&new)),
-            env.path.clone(), true))) {
-
-            return Some(Err(e));
-        }
+            env.path.clone(), true)));
 
         built.root = env.package_config.root;
 

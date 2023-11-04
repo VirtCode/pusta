@@ -98,6 +98,11 @@ impl Variable {
             _ => { None }
         }
     }
+
+    /// Creates an empty group variable
+    pub fn base() -> Self {
+        Self::Group(HashMap::new())
+    }
 }
 
 pub const DEFAULT_PARENT: &str = "~/.config";
@@ -142,6 +147,18 @@ pub fn generate_magic() -> Variable {
             ("hostname".into(), Variable::Value(Value::String(whoami::hostname())))
         ])))
     ]))
+}
+
+pub fn merge_variables(module: &Variable, repository: &Variable, system: &Variable, magic: &Variable) -> Variable {
+    let mut base = Variable::base();
+
+    // merge variables in order
+    base.merge(module);
+    base.merge(repository);
+    base.merge(system);
+    base.merge(magic);
+
+    base
 }
 
 /// Intermediate type for an error occurring when resolving variables.

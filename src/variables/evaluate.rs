@@ -27,11 +27,10 @@ impl VariableEvalCounter {
 
 /// Evaluates a context consisting of many statements
 pub fn evaluate(input: &str, context: &Context, variables: &Variable, counter: &mut VariableEvalCounter) -> Result<String, VariableError> {
-    let mut counter = VariableEvalCounter::default();
 
     let mut evals = context.statements.iter().map(|s| {
         Ok((&s.location,
-            evaluate_statement(input, s, variables, &mut counter)?))
+            evaluate_statement(input, s, variables, counter)?))
     }).collect::<Result<Vec<(&Range<usize>, String)>, VariableError>>()?;
 
     evals.sort_by(|(l1, _), (l2, _)| l1.start.cmp(&l2.start));

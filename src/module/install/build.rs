@@ -47,7 +47,7 @@ pub struct ModuleEnvironment {
 
 /// builds a module install
 pub(super) fn install(module: &Module, repository: &Repository, env: &ModuleEnvironment) -> anyhow::Result<ModuleInstructions> {
-    info!("Building module {}", module.qualifier.unique());
+    info!("Building module {} for installation", module.qualifier.unique());
 
     let empty = Variable::base();
     let variables = merge_variables(module.variables.as_ref().unwrap_or_else(|| &empty),
@@ -77,6 +77,7 @@ pub(super) fn install(module: &Module, repository: &Repository, env: &ModuleEnvi
 
 /// builds a module removal
 pub(super) fn remove(module: InstalledModule) -> anyhow::Result<ModuleInstructions> {
+    info!("Collecting module {} for removal", module.module.qualifier.unique());
     Ok(ModuleInstructions {
         apply: vec![],
         revert: vec![true; module.built.jobs.len()],
@@ -87,6 +88,7 @@ pub(super) fn remove(module: InstalledModule) -> anyhow::Result<ModuleInstructio
 
 /// builds a module update
 pub(super) fn update(installed: InstalledModule, module: &Module, repository: &Repository, env: &ModuleEnvironment) -> anyhow::Result<ModuleInstructions>{
+    info!("Building update for module {}", module.qualifier.unique());
 
     // build variables and env
     let empty = Variable::base();

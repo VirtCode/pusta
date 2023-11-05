@@ -15,11 +15,6 @@ pub struct Command {
 
 #[derive(Subcommand)]
 pub enum SubCommand {
-    /// Loads main repository and uses the provided config
-    Load {
-        folder: Option<String>
-    },
-
     /// Installs a module
     Install {
         /// Qualifier of module

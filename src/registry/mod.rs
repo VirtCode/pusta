@@ -2,20 +2,20 @@ pub mod index;
 pub mod cache;
 
 use std::ops::Deref;
-use std::os::unix::raw::time_t;
 use std::path::{Path, PathBuf};
-use anyhow::{Error, format_err};
 use chrono::{DateTime, Local, NaiveDateTime};
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
-use crate::module::install::{Gatherer, modify};
+use crate::module::install::{Gatherer, InstalledModule, modify};
 use crate::module::Module;
+use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::output::{logger, prompt_choice_module, prompt_yn};
-use crate::output::logger::{disable_indent, enable_indent};
+use crate::output::logger::{disable_indent, enable_indent, section};
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
+use crate::variables::{generate_magic, load_system, Variable};
 
 /// This struct handles all modules and modifies them. Essentially, every change in install state goes through this struct.
 pub struct Registry {
@@ -98,7 +98,7 @@ impl Registry {
 
     /// Installs a module to the system
     pub fn install_module(&mut self, name: &str) {
-        info!("Querying sources...");
+        section("Querying sources...");
         let modules = self.index.query(name);
 
         let module = if let Some(m) =
@@ -109,6 +109,11 @@ impl Registry {
             return;
         };
 
+        if self.cache.index.get(&module).is_some() {
+            error!("Module is already installed, please update or reinstall it");
+            return;
+        }
+
         let mut gatherer = Gatherer::default();
         gatherer.install(module);
 
@@ -118,7 +123,7 @@ impl Registry {
 
     /// Uninstalls a module from the system
     pub fn uninstall_module(&mut self, name: &str) {
-        info!("Querying cache...");
+        section("Querying cache...");
         let modules = self.cache.index.query(name);
 
         let module = if let Some(m) = prompt_choice_module(
@@ -139,12 +144,34 @@ impl Registry {
 
     /// Updates all modules
     pub fn update_everything(&mut self) {
-        todo!()
+        section("Looking for updates...");
+        let magic = generate_magic();
+        let system = load_system(&self.config).unwrap_or(Variable::base());
+
+        let updatable: Vec<ModuleQualifier> = self.cache.index.modules.iter().filter_map(|installed| {
+
+            if let Some(indexed) = self.index.get(installed.qualifier()) {
+                if !installed.up_to_date(indexed, &magic, &system, &self.cache) {
+                    info!("Found outdated module {}", installed.qualifier().unique());
+                    return Some(installed.qualifier().clone())
+                }
+            }
+
+            None
+        }).collect();
+
+        let mut gatherer = Gatherer::default();
+        for q in updatable {
+            gatherer.update(q);
+        }
+
+        debug!("Starting modify");
+        modify(gatherer, &self.index, &mut self.cache, &self.config);
     }
 
     /// Updates a single module
     pub fn update_module(&mut self, name: &str) {
-        info!("Querying cache and sources...");
+        section("Querying cache...");
 
         let modules = self.cache.index.query(name);
 
@@ -161,6 +188,8 @@ impl Registry {
             error!("Module is installed but is orphaned, so it cannot be updated");
             return;
         }
+
+        // TODO: Check if outdated first
 
         let mut gatherer = Gatherer::default();
         gatherer.update(module);
@@ -193,11 +222,14 @@ impl Registry {
         if self.cache.index.modules.is_empty() {
             info!("{}", "No modules are currently installed".italic().dimmed())
         } else {
+            let magic = generate_magic();
+            let system = load_system(&self.config).unwrap_or(Variable::base());
+
             for module in &self.cache.index.modules {
                 let naive: DateTime<Local> = module.built.time.into();
 
                 let info = if let Some(indexed) = self.index.get(&module.module.qualifier) {
-                    if !module.module.up_to_date(&indexed) {
+                    if !module.up_to_date(&indexed, &magic, &system, &self.cache) {
                         format!("-{}", "outdated".yellow())
                     } else {
                         String::default()
@@ -211,7 +243,7 @@ impl Registry {
                     module.module.qualifier.unique(),
                     module.module.version.dimmed(),
                     info,
-                    "at".italic(),
+                    "on".italic(),
                     naive.format("%x").to_string().italic());
             }
         }

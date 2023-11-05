@@ -86,7 +86,7 @@ impl WorkerPortal {
         let worker_id = Uuid::new_v4();
         debug!("spawning worker with id {worker_id}");
         let mut child = command.arg(worker_id.to_string()).spawn()
-            .context("failed to run command to spawn worker")?;
+            .map_err(|e| anyhow!("failed to spawn worker, {e}"))?;
 
         debug!("waiting for connection of worker {worker_id}");
         let now = Instant::now();

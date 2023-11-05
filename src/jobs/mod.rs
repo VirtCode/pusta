@@ -68,8 +68,6 @@ pub enum JobError {
 pub struct Job {
     /// Title of the job, if none, one will be generated
     title: Option<String>,
-    /// Whether a job is optional, meaning failure will not cancel the whole installation
-    optional: Option<bool>,
 
     /// The actual function of the job
     job: Box<dyn Installable>
@@ -86,7 +84,6 @@ impl Job {
         let mut built = self.job.build(env)?;
 
         // change generic attributes
-        built.optional = self.optional.unwrap_or(false);
         built.title = self.title();
 
         Ok(built)
@@ -97,7 +94,6 @@ impl Job {
 
         if let Ok(job) = &mut built {
             job.title = self.title();
-            job.optional = self.optional.unwrap_or(false); // TODO: Match with previous success, if succeeded, it is no longer optional
         }
 
         Some(built)
@@ -110,8 +106,6 @@ pub struct BuiltJob {
     /// title of the job
     pub title: String,
 
-    /// is the job optional
-    pub optional: bool,
     /// is the job to be run as root
     pub root: bool,
 
@@ -130,7 +124,6 @@ impl BuiltJob {
     pub fn new() -> Self {
         Self {
             title: "unknown job".to_string(),
-            optional: false,
             root: false,
             changes: vec![],
             resources: vec![],

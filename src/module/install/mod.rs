@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, format, Formatter, Write};
 use std::fs;
 use std::io::Read;
 use std::ops::Deref;
@@ -8,7 +8,7 @@ use std::process::Command;
 use std::str::FromStr;
 use std::time::SystemTime;
 use anyhow::{anyhow, Context};
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
@@ -17,10 +17,11 @@ use crate::module::install::build::{BuiltModule, ModuleEnvironment, ModuleInstru
 use crate::module::install::depend::{ModuleMotivation, Resolver};
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
+use crate::output::logger::section;
 use crate::output::prompt;
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
-use crate::variables::{generate_magic, load_system, Variable};
+use crate::variables::{generate_magic, load_system, merge_variables, Variable};
 
 mod build;
 pub mod depend;
@@ -61,7 +62,6 @@ impl Gatherer {
     fn gather(self: Self, index: &Index<Module>, local: &Index<InstalledModule>) -> anyhow::Result<Vec<Scheduled>> {
         let mut modules = vec![];
 
-        info!("Resolving dependencies...");
         let mut resolver = Resolver::default();
 
         for gathered in self.gathered {
@@ -77,10 +77,10 @@ impl Gatherer {
                     let module = local.get(&module).context("installed module disappeared unexpectedly")?;
 
                     // TODO: Check dependencies and Free modules
-                    if resolver.can_remove(module.qualifier()) {
+                    if resolver.can_remove(module.qualifier(), local) {
                         modules.push(Scheduled::Remove { module: module.clone() })
                     } else {
-                        return Err(anyhow!("screw dependencies"));
+                        return Err(anyhow!("this module is being depended upon"));
                     }
                 }
                 Gathered::Update(module) => {
@@ -118,6 +118,24 @@ pub struct InstalledModule {
     pub built: BuiltModule,
 }
 
+impl InstalledModule {
+    pub fn up_to_date(&self, new: &Module, magic_variables: &Variable, system_variables: &Variable, cache: &Cache) -> bool {
+        if let Some(repo) = cache.get_repository(self.module.qualifier.repository()) {
+            let empty = Variable::base();
+            let variables = merge_variables(new.variables.as_ref().unwrap_or_else(|| &empty),
+                                            repo.variables.as_ref().unwrap_or_else(|| &empty),
+                                            system_variables, magic_variables);
+
+            // either the module sources have changed
+            new.checksum == self.module.checksum &&
+                !self.built.jobs.iter().any(|j| j.change_variables(&self.built.used_variables, &variables))
+        } else {
+            // assume up to date if orphaned
+            true
+        }
+    }
+}
+
 impl Indexable for InstalledModule {
     fn dependencies(&self) -> &Vec<String> { self.module.dependencies() }
 
@@ -127,6 +145,16 @@ impl Indexable for InstalledModule {
 /// Indicates what a modification is doing
 enum ModifyType {
     Install, Remove, Update
+}
+impl ModifyType {
+    pub fn fancy(&self) -> ColoredString {
+        match self {
+            ModifyType::Install => { "installation".green() }
+            ModifyType::Remove => { "removal".yellow() }
+            ModifyType::Update => { "update".blue() }
+        }
+    }
+
 }
 impl Display for ModifyType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -140,7 +168,6 @@ impl Display for ModifyType {
 
 /// Builds the changes to a uniform format
 fn build(scheduled: Vec<Scheduled>, cache: &Cache, config: &Config) -> anyhow::Result<Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>>{
-    info!("Building modules...");
     let mut built = vec![];
 
     let env = ModuleEnvironment {
@@ -175,11 +202,12 @@ fn build(scheduled: Vec<Scheduled>, cache: &Cache, config: &Config) -> anyhow::R
 /// Asks the user whether the changes should be applied, can enter a detailed view if required
 fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>, previewer: &str) -> bool {
     info!("Scheduled module changes:");
+
     for (m, _, _, what) in changes {
         match what {
             ModifyType::Install => { info!("    {} ({}-{})", m.name.bold(), m.qualifier.unique(), m.version.dimmed()) }
             ModifyType::Remove => { info!("    {} ({}-{})", m.name.bold(), m.qualifier.unique(), "removal".dimmed())  }
-            ModifyType::Update => { info!("    {} ({}-{})", m.name.bold(), m.qualifier.unique(), m.version.dimmed())  }
+            ModifyType::Update => { info!("    {} ({}~{})", m.name.bold(), m.qualifier.unique(), m.version.dimmed())  }
         }
     }
 
@@ -193,7 +221,8 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
     }
 
     // fine grained view
-    info!("{}", "These specific changes are going to be applied:".bold());
+    println!();
+    info!("These specific changes are going to be applied:");
 
     let mut file_map = HashMap::new();
 
@@ -209,26 +238,29 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
                     file_map.insert(id, data);
                     entry
                 }).collect::<Vec<String>>();
-                let files = if files.is_empty() { "".to_string() } else { format!(", content: {}", files.join(", ")) };
+                let files = if files.is_empty() { "".to_string() } else { format!(", resources: {}", files.join(", ")) };
 
-                info!("    {}", change.describe());
-                info!("        action: {}{}{}",
-                    if apply { "applying" } else { "reverting" }, files,
-                    if job.root { "root".bright_red().bold().to_string() } else { "".to_string() })
+                info!("  - {}", change.describe());
+                info!("     {}{}{}",
+                    if apply { "apply".green() } else { "revert".yellow() },
+                    if job.root { format!(", {}", "root".bright_red().bold()) } else { "".to_string() },
+                    files);
             }
         }
     }
 
     for (module, built, motivation, what) in changes {
         info!("Module: {}", module.qualifier.unique().bold());
-        info!("        type: {}{}{}", what, {
+        info!("  {}{}{}", what.fancy(), {
                 if !motivation.depends.is_empty() {
-                    let string = motivation.depends.iter().map(|q| q.unique()).collect::<Vec<String>>().join(", ");
+                    let string = motivation.depends.iter().map(|q| q.unique()).collect::<Vec<String>>().join(" ");
                     format!(", depends on: {}", string.italic())
+                } else if (motivation.because.is_empty()) {
+                    format!(", {}", "no dependencies".dimmed())
                 } else { String::new() }
             }, {
                 if !motivation.because.is_empty() {
-                    let string = motivation.because.iter().map(|q| q.unique()).collect::<Vec<String>>().join(", ");
+                    let string = motivation.because.iter().map(|q| q.unique()).collect::<Vec<String>>().join(" ");
                     format!(", because of: {}", string.italic())
                 } else { String::new() }
             });
@@ -240,12 +272,10 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
         if let Some(new) = &built.new {
             print_jobs(&new.jobs, &built.apply, true, &mut file_map);
         }
-
-        info!("");
     }
 
     loop {
-        let response = prompt("Apply changes or preview content? [Y/n/content] ").to_lowercase();
+        let response = prompt("Apply changes or preview resource? [Y/n/resource] ").to_lowercase();
         let response = response.trim();
 
         if response.starts_with("y") || response.is_empty() { break true; }
@@ -259,7 +289,6 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
 
 /// Saves the changes to the disk
 fn save(changes: Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>, result: Vec<Option<bool>>, cache: &mut Cache) -> anyhow::Result<()> {
-    info!("Persisting changes to disk...");
 
     for ((module, instr, _, t), real) in changes.into_iter().zip(result).filter_map(|(t, result)| result.map(|b| (t,b))) {
         if !real {
@@ -292,6 +321,7 @@ fn save(changes: Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
 
 pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, config: &Config) {
     // 1. gather
+    section("Resolving dependencies...");
     let scheduled = match gatherer.gather(index, &cache.index) {
         Ok(s) => { s }
         Err(e) => {
@@ -301,6 +331,7 @@ pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, conf
     };
 
     // 2. build
+    section("Building modules...");
     let built = match build(scheduled, &cache, config) {
         Ok(b) => { b }
         Err(e) => {
@@ -310,12 +341,16 @@ pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, conf
     };
 
     // 3. ask
+    section("Preparing modifications...");
+    println!();
     if !ask(&built, &config.system.file_previewer) {
         error!("installation cancelled by user");
         return;
     }
+    println!();
 
     // 4. run
+    section("Applying modifications...");
     let result = match run::run(&built.iter().map(|(m, i, mo, _)| (i, m, mo)).collect(), &config, &cache) {
         Ok(r) => { r }
         Err(e) => {
@@ -325,6 +360,7 @@ pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, conf
     };
 
     // 5. save
+    section("Persisting changes...");
     if let Err(e) = save(built, result, cache) {
         error!("failed to save changes to disk: {e}");
         error!("pusta will not remember that these changes were made");

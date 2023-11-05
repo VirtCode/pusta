@@ -77,14 +77,14 @@ pub struct ConfigShell {
 }
 
 impl ConfigShell {
-    /// The default value for the root elevator (sudo, because that is still the most popular, sorry doas)
+    /// The default value for the root elevator (please use doas, because sudo messes with the terminal in ways which make the cli unusable)
     pub fn root_elevator_default() -> String {
-        "sudo %COMMAND%".to_owned()
+        "doas".to_owned()
     }
 
     /// The default value for the file previewer (less, because it is a gnu coreutil and thus on (almost) every linux distro)
     pub fn file_previewer_default() -> String {
-        "less %FILE%".to_owned()
+        "less".to_owned()
     }
 }
 

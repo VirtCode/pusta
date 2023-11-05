@@ -106,10 +106,6 @@ impl Module {
     pub fn equals_jobs(&self, other: &Self) -> bool {
         self.jobs == other.jobs
     }
-
-    pub fn up_to_date(&self, new: &Self) -> bool {
-        self.checksum == new.checksum
-    }
 }
 
 impl Indexable for Module {

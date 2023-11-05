@@ -55,7 +55,7 @@ impl Resolver {
 
                     // resolve dependencies for provider
                     let mut provider_deps = self.resolve(*provider, local, available)?;
-                    for (module, info) in &mut provider_deps {
+                    for (_module, info) in &mut provider_deps {
                         info.because.push(module.qualifier.clone());
                     }
 
@@ -82,8 +82,9 @@ impl Resolver {
         Ok(modules)
     }
 
-    pub fn can_remove(&self, module: &ModuleQualifier) -> bool {
-        !self.used.iter().any(|s| module.does_provide(s))
+    pub fn can_remove(&self, module: &ModuleQualifier, local: &Index<InstalledModule>) -> bool {
+        !self.used.iter().any(|s| module.does_provide(s)) &&
+            local.specific_dependents(&module).is_empty()
     }
 }
 

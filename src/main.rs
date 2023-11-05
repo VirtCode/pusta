@@ -1,24 +1,15 @@
 extern crate core;
 
 use std::{env, fs};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::exit;
-use std::thread::sleep;
-use std::time::Duration;
 use log::{debug, error, info};
 use crate::command::{Command, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use clap::Parser;
-use uuid::Uuid;
-use crate::module::transaction::change::{AtomicChange, RunChange, WriteChange};
-use crate::module::transaction::worker::run::handle_worker;
-use crate::module::transaction::worker::WorkerPortal;
+use crate::module::change::worker::run::handle_worker;
 use crate::output::logger;
 use crate::registry::Registry;
-use crate::variables::context::read_context;
-use crate::variables::evaluate::evaluate;
-use crate::variables::{default_system_variables, generate_magic, load_system, VariableError};
 
 mod command;
 mod module;

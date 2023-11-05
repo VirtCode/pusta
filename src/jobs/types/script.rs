@@ -2,7 +2,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::jobs::helper::{process_variables, resource_load};
-use crate::module::transaction::change::ScriptChange;
+use crate::module::change::ScriptChange;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct ScriptJob {

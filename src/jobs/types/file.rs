@@ -2,7 +2,7 @@ use std::path::{PathBuf};
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::jobs::helper::{process_variables, resource_dir, resource_load, resource_mark};
-use crate::module::transaction::change::{ClearChange, CopyChange, LinkChange, WriteChange};
+use crate::module::change::{ClearChange, CopyChange, LinkChange, WriteChange};
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct FileJob {
@@ -78,7 +78,9 @@ impl Installable for FileJob {
         built.change(Box::new(ClearChange::new(target.clone(), true)));
 
         // deploy file to location
-        self.deploy(target, env, &mut built)?;
+        if let Err(e) = self.deploy(target, env, &mut built) {
+            return Some(Err(e))
+        }
 
         built.root = self.root.unwrap_or_default();
 

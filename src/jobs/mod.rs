@@ -4,12 +4,13 @@ mod helper;
 use std::fs::File;
 use std::io::Error;
 use std::path::{Path, PathBuf};
+use anyhow::Context;
 use chksum::chksum;
 use chksum::hash::SHA1;
 use serde::{Deserialize, Serialize};
 use crate::config::ConfigPackage;
 use crate::jobs::types::Installable;
-use crate::module::transaction::change::AtomicChange;
+use crate::module::change::AtomicChange;
 use crate::variables::{Variable, VariableError};
 use crate::variables::evaluate::VariableEvalCounter;
 
@@ -21,6 +22,7 @@ pub struct JobEnvironment<'a> {
 }
 
 /// this marks a resource used by the job
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceItem {
     /// relative path the file is located at
     path: PathBuf,
@@ -45,8 +47,8 @@ impl ResourceItem {
         let mut file = parent.to_owned();
         file.push(&self.path);
 
-        File::open(file)
-            .and_then(chksum::<SHA1, _>)
+        File::open(file).context("failed to read file for checksum")
+            .and_then(|f| chksum::<SHA1, _>(f).context("failed to calculate checksum"))
             .map(|c| c.to_hex_lowercase() == self.checksum)
             .unwrap_or(false)
     }
@@ -103,6 +105,7 @@ impl Job {
 }
 
 /// this struct contains all information about a built job
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BuiltJob {
     /// title of the job
     pub title: String,

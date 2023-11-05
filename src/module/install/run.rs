@@ -1,13 +1,13 @@
 use log::{debug, error, info, warn};
 use crate::config::Config;
 use crate::jobs::BuiltJob;
-use crate::module::installed::build::ModuleInstructions;
-use crate::module::installed::neodepend::ModuleMotivation;
+use crate::module::install::build::ModuleInstructions;
+use crate::module::install::depend::ModuleMotivation;
 use crate::module::Module;
-use crate::module::transaction::change::{AtomicChange, ChangeError};
-use crate::module::transaction::worker::WorkerPortal;
+use crate::module::change::{AtomicChange, ChangeError};
+use crate::module::change::worker::WorkerPortal;
 
-pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>, config: &Config) -> Vec<Option<bool>>{
+pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>, config: &Config) -> anyhow::Result<Vec<Option<bool>>> {
 
     info!("Spawning workers...");
     let mut workers = WorkerPortal::open()?;
@@ -17,13 +17,15 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
 
     // check if any root jobs are present
     if instructions.iter()
-        .any(|i| {
-            if let Some(new) = i.new {
-                new.jobs.iter().zip(i.apply).any(|(j, b)| b && j.root)
-            } else { false } ||
-                if let Some(old) = i.old {
-                    old.jobs.iter().zip(i.revert).any(|(j, b)| b && j.root)
-                } else { false }
+        .any(|(i, _, _)| {
+            let removal = if let Some(new) = &i.new {
+                new.jobs.iter().zip(&i.apply).any(|(j, b)| *b && j.root)
+            } else { false };
+            let apply = if let Some(old) = &i.old {
+                old.jobs.iter().zip(&i.revert).any(|(j, b)| *b && j.root)
+            } else { false };
+
+            removal || apply
         }) {
 
         debug!("Spawning root worker");
@@ -47,11 +49,11 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
         // revert revertible changes
         if let Some(module) = &instruction.old {
             debug!("Reverting old changes");
-            let jobs = module.jobs.iter()
+            let jobs: Vec<&BuiltJob> = module.jobs.iter()
                 .zip(&instruction.revert)
-                .filter_map(|(j, exec)| if exec { Some(j) } else { None }).collect();
+                .filter_map(|(j, exec)| if *exec { Some(j) } else { None }).collect();
 
-            match revert_jobs(jobs, &mut workers) {
+            match revert_jobs(&jobs, &mut workers) {
                 Ok(true) => {}
                 Ok(false) => {
                     warn!("Reversal steps for module {} did not go gracefully", source.qualifier.unique())
@@ -68,11 +70,11 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
         if let Some(module) = &instruction.new {
             debug!("Applying new changes");
 
-            let jobs = module.jobs.iter()
+            let jobs: Vec<&BuiltJob> = module.jobs.iter()
                 .zip(&instruction.apply)
-                .filter_map(|(j, exec)| if exec { Some(j) } else { None }).collect();
+                .filter_map(|(j, exec)| if *exec { Some(j) } else { None }).collect();
 
-            match apply_jobs(jobs, &mut workers) {
+            match apply_jobs(&jobs, &mut workers) {
                 Ok(true) => {}
                 Ok(false) => {
                     error!("Apply steps for module {} did not go gracefully, removing its dependencies again", source.qualifier.unique());
@@ -85,7 +87,8 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
 
                         results[index] = Some(false);
 
-                        match revert_jobs(jobs, &mut workers) {
+                        let install_jobs: Vec<&BuiltJob> = instruction.new.as_ref().map(|m| m.jobs.iter().collect()).unwrap_or_default();
+                        match revert_jobs(&install_jobs, &mut workers) {
                             Ok(true) => {}
                             Ok(false) => {
                                 warn!("Reversal steps because of dependency failure for module {} did not go gracefully", source.qualifier.unique())
@@ -106,7 +109,7 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
         }
     }
 
-    results
+    Ok(results)
 }
 
 /// Applies a list of jobs
@@ -134,7 +137,7 @@ fn apply_changes(changes: &[Box<dyn AtomicChange>], root: bool, portal: &mut Wor
 
             debug!("Reverting previous changes of job");
             revert_changes(&changes[0..index], root, portal)?;
-            Ok(false)
+            return Ok(false)
         }
     }
 

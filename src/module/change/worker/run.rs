@@ -6,8 +6,8 @@ use std::process::exit;
 use anyhow::Context;
 use log::error;
 use uuid::Uuid;
-use crate::module::transaction::change::{ChangeError, ChangeResult, ChangeRuntime};
-use crate::module::transaction::worker::{SOCKET_PATH, WORKER_TMP_PATH, WorkerRequest, WorkerResponse};
+use crate::module::change::{ChangeError, ChangeResult, ChangeRuntime};
+use crate::module::change::worker::{SOCKET_PATH, WORKER_TMP_PATH, WorkerRequest, WorkerResponse};
 
 /// Handles the worker and prints errors
 pub fn handle_worker(socket_id: Uuid, id: Uuid) {
@@ -32,7 +32,6 @@ fn worker(socket_id: Uuid, id: Uuid) -> anyhow::Result<()> {
         path.push(id.to_string());
         path
     }};
-    let mut changes = HashMap::new();
 
     // Ready
     write_event(&mut socket, WorkerResponse::Login(id))?;

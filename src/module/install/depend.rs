@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use log::error;
 use crate::module::install::InstalledModule;
 use crate::module::Module;
-use crate::module::qualifier::{DependencyQualifier, ModuleQualifier};
+use crate::module::qualifier::{ModuleQualifier};
 use crate::output::prompt_choice_module;
 use crate::registry::index::{Index, Indexable};
 
@@ -17,7 +17,7 @@ impl ModuleMotivation {
         // either it depends on something failed
         self.depends.iter().any(|q| failed.contains(q)) ||
             // or it was only installed because of the failed item
-            (!self.because.is_empty() && self.because.iter().filter(|q| !failed.contains(q)).is_empty())
+            (!self.because.is_empty() && !self.because.iter().any(|q| !failed.contains(q)))
     }
 
 }
@@ -83,7 +83,7 @@ impl Resolver {
     }
 
     pub fn can_remove(&self, module: &ModuleQualifier) -> bool {
-        !self.used.iter().any(|s| module.qualifier.does_provide(s))
+        !self.used.iter().any(|s| module.does_provide(s))
     }
 }
 

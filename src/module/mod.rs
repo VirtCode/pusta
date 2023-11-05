@@ -17,10 +17,9 @@ use crate::variables::Variable;
 use crate::registry::index::Indexable;
 
 pub mod repository;
-pub mod install;
 pub mod qualifier;
-pub mod transaction;
-mod installed;
+pub mod change;
+pub mod install;
 
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";

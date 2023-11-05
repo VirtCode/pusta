@@ -5,7 +5,7 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use crate::config::ConfigPackage;
 use crate::jobs::{BuiltJob, Job, JobEnvironment, JobError};
-use crate::module::installed::InstalledModule;
+use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::repository::Repository;
 use crate::variables::{generate_magic, merge_variables, Variable};
@@ -18,7 +18,7 @@ pub(super) struct ModuleInstructions {
     pub revert: Vec<bool>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct BuiltModule {
     pub jobs: Vec<BuiltJob>,
     pub used_variables: Variable
@@ -34,8 +34,9 @@ pub struct ModuleEnvironment {
 pub(super) fn install(module: &Module, repository: &Repository, env: &ModuleEnvironment) -> anyhow::Result<ModuleInstructions> {
     info!("Building module {}", module.qualifier.unique());
 
-    let variables = merge_variables(&module.variables.unwrap_or_else(|| Variable::base()),
-                                    &repository.variables.unwrap_or_else(|| Variable::base()),
+    let empty = Variable::base();
+    let variables = merge_variables(module.variables.as_ref().unwrap_or_else(|| &empty),
+                                    repository.variables.as_ref().unwrap_or_else(|| &empty),
                                     &env.system_variables, &env.magic_variables);
 
     let job_env = JobEnvironment {
@@ -63,7 +64,7 @@ pub(super) fn install(module: &Module, repository: &Repository, env: &ModuleEnvi
 pub(super) fn remove(module: InstalledModule) -> anyhow::Result<ModuleInstructions> {
     Ok(ModuleInstructions {
         apply: vec![],
-        revert: vec![true; module.built.len()],
+        revert: vec![true; module.built.jobs.len()],
         new: None,
         old: Some(module.built)
     })
@@ -73,8 +74,9 @@ pub(super) fn remove(module: InstalledModule) -> anyhow::Result<ModuleInstructio
 pub(super) fn update(installed: InstalledModule, module: &Module, repository: &Repository, env: &ModuleEnvironment) -> anyhow::Result<ModuleInstructions>{
 
     // build variables and env
-    let variables = merge_variables(&module.variables.unwrap_or_else(|| Variable::base()),
-                                    &repository.variables.unwrap_or_else(|| Variable::base()),
+    let empty = Variable::base();
+    let variables = merge_variables(module.variables.as_ref().unwrap_or_else(|| &empty),
+                                    repository.variables.as_ref().unwrap_or_else(|| &empty),
                                     &env.system_variables, &env.magic_variables);
 
     let job_env = JobEnvironment {
@@ -90,12 +92,16 @@ pub(super) fn update(installed: InstalledModule, module: &Module, repository: &R
 
     // loop through jobs and check for updates
     // create a zipped iterator with two options to accommodate for smaller and bigger job arrays
-    for jobs in module.jobs.iter()
-        .map(Some).chain(vec![None; cmp::max(0, installed.module.jobs.len() as i32 - module.jobs.len() as i32) as usize])
-        .zip(
-            installed.module.jobs.iter().zip(installed.built.jobs.iter()).enumerate()
-                .map(Some).chain(vec![None; cmp::max(0, module.jobs.len() as i32 - installed.module.jobs.len() as i32) as usize])
-        ) {
+    let mut new_iter = module.jobs.iter();
+    let mut old_iter = installed.module.jobs.iter().zip(installed.built.jobs.iter()).enumerate();
+
+    for jobs in std::iter::from_fn(|| {
+        let new = new_iter.next();
+        let old = old_iter.next();
+
+        if new.is_none() && old.is_none() { None }
+        else { Some((new, old))}
+    }) {
 
         match jobs {
             // job has changed
@@ -105,12 +111,12 @@ pub(super) fn update(installed: InstalledModule, module: &Module, repository: &R
                     old_built.change_variables(&installed.built.used_variables, &variables) {
 
                     // copy job and skip
-                    built.push((*old_built).clone());
+                    built.push(old_built.clone());
                     apply.push(false);
                 } else {
 
                     // partial build is possible
-                    if let Some(result) = new.partial(old, old_built, &job_env) {
+                    if let Some(result) = new.partial(old, &old_built, &job_env) {
                         let result = result.map_err(|e| handle_build_error(&module, e))?;
 
                         // save partial job to be run
@@ -153,7 +159,7 @@ fn handle_build_error(module: &Module, error: JobError) -> anyhow::Error {
             error.print(&*file.to_string_lossy(), &source);
         }
         JobError::Resources(file, error) => {
-            error!("Could not work with file '{file}': {error}");
+            error!("Could not work with file '{}': {error}", file.to_string_lossy());
         }
         JobError::Other(message, error) => {
             error!("{message}: {error}");

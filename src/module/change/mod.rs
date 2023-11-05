@@ -1,3 +1,6 @@
+mod shell;
+pub mod worker;
+
 use std::{env, fs, io};
 use std::os::unix::fs::symlink;
 use std::os::unix::raw::time_t;
@@ -5,18 +8,17 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::SystemTime;
 use chksum::hash::SHA1;
-use dyn_clone::clone_trait_object;
+use dyn_clone::{clone_trait_object, DynClone};
 use fs_extra::dir::CopyOptions;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use crate::module::transaction::shell;
 use crate::registry::cache::default_cache_dir;
 
-clone_trait_object!(Installable);
+clone_trait_object!(AtomicChange);
 
 /// Represents an atomic change
 #[typetag::serde(tag = "type")]
-pub trait AtomicChange: Clone {
+pub trait AtomicChange: DynClone {
     /// Applies the atomic change
     fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult;
 
@@ -169,13 +171,13 @@ impl ToString for ChangeError {
                 format!("Fatal error occurred: {message}")
             }
             ChangeError::Filesystem { message, cause, path } => {
-                format!("Could not use filesystem at '{path}', {message}, caused by: {cause}")
+                format!("Could not use filesystem at '{}', {message}, caused by: {cause}", path.to_string_lossy())
             }
             ChangeError::Cache { path, target_path, message } => {
-                format!("Could not cache file '{path}' to '{target_path}', because of: {message}")
+                format!("Could not cache file '{}' to '{}', because of: {message}", path.to_string_lossy(), target_path.to_string_lossy())
             }
             ChangeError::Temp { content, target_path, message } => {
-                format!("Could not store file temporarily at '{target_path}', because of {message}")
+                format!("Could not store file temporarily at '{}', because of {message}", target_path.to_string_lossy())
             }
             ChangeError::CommandFatal { command, message } => {
                 format!("Fatal error occurred when running command: {message}\nCommand run was '{command}'")

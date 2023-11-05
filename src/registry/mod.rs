@@ -1,8 +1,5 @@
 pub mod index;
 pub mod cache;
-mod transaction;
-mod depend;
-mod install;
 
 use std::ops::Deref;
 use std::os::unix::raw::time_t;
@@ -12,20 +9,12 @@ use chrono::{DateTime, Local, NaiveDateTime};
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
-use crate::module::install::checked::CheckedShell;
-use crate::module::install::{InstalledModule, Installer, InstallReason};
-use crate::module::install::InstallReason::{Dependency, Manual};
-use crate::module::install::shell::Shell;
 use crate::module::Module;
-use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
-use crate::output;
 use crate::output::{logger, prompt_choice_module, prompt_yn};
 use crate::output::logger::{disable_indent, enable_indent};
 use crate::registry::cache::Cache;
-use crate::registry::depend::DependencyResolver;
 use crate::registry::index::{Index, Indexable};
-use crate::registry::transaction::ModuleTransaction;
 
 /// This struct handles all modules and modifies them. Essentially, every change in install state goes through this struct.
 pub struct Registry {
@@ -119,36 +108,7 @@ impl Registry {
             return;
         };
 
-        let mut transactions = vec![];
-
-        if let Some(installed) = self.cache.index.get(module.qualifier()) {
-            if prompt_yn("This module is already installed, reinstall?", false) {
-                transactions.push(ModuleTransaction::Reinstall(installed.clone(), module.clone()));
-            }
-            else { return; }
-        } else {
-            transactions.push(ModuleTransaction::Install(module.clone(), Manual));
-        }
-
-
-        info!("Resolving dependencies...");
-        let mut dependencies = DependencyResolver::new(&self.index, &self.cache.index);
-
-        if let Err(e) = dependencies.resolve(module) {
-            error!("{e}");
-            return;
-        }
-
-        // Free if doing reinstall
-        if let Some(installed) = self.cache.index.get(module.qualifier()) {
-            dependencies.free(installed);
-        }
-
-        transactions.append(&mut dependencies.create_transactions());
-
-        println!();
-
-        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)))
+        todo!()
     }
 
     /// Uninstalls a module from the system
@@ -165,73 +125,13 @@ impl Registry {
             return;
         };
 
-        let mut transactions = vec![ModuleTransaction::Remove(module.clone())];
+        todo!()
 
-
-        info!("Checking for dependents...");
-        let dependents = self.cache.index.specific_dependents(module.qualifier());
-        if !dependents.is_empty() {
-            error!("Some other modules ({}) depend on this module",
-                dependents.iter().map(|i| i.qualifier().unique()).collect::<Vec<String>>().join(", "));
-            if !prompt_yn("Do you want to force removal?", false) {
-                return;
-            }
-        }
-
-
-        info!("Freeing dependencies...");
-        let mut resolver = DependencyResolver::new(&self.index, &self.cache.index);
-        resolver.free(module);
-        transactions.append(&mut resolver.create_transactions());
-
-        println!();
-
-        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)))
     }
 
     /// Updates all modules
     pub fn update_everything(&mut self) {
-        info!("Looking for updates...");
-        let updatable: Vec<(&InstalledModule, Module)> = self.cache.index.modules.iter().filter_map(|installed| {
-
-            if let Some(indexed) = self.index.query(&installed.module.qualifier.unique()).first() {
-                if !installed.module.up_to_date(indexed) {
-                    return Some((installed, indexed.deref().clone()))
-                }
-            }
-
-            None
-        }).collect();
-
-        if updatable.is_empty() {
-            info!("Everything is up-to-date, there is nothing to do");
-            return;
-        }
-
-
-        info!("Calculating dependency changes...");
-        let mut resolver = DependencyResolver::new(&self.index, &self.cache.index);
-
-        for (i, m) in &updatable {
-            if let Err(e) = resolver.resolve(m) {
-                error!("Skipping update for {}: {e}", m.qualifier().unique());
-                continue;
-            }
-            resolver.free(i);
-        }
-
-
-        info!("Creating transactions...");
-        let mut transactions = vec![];
-
-        for (i, m) in updatable {
-            transactions.push(ModuleTransaction::Update(i.clone(), m.clone()));
-        }
-        transactions.append(&mut resolver.create_transactions());
-
-        println!();
-
-        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)));
+        todo!()
     }
 
     /// Updates a single module
@@ -249,32 +149,7 @@ impl Registry {
             return;
         };
 
-        let indexed = if let Some(m) = self.index.get(&module.qualifier()) { m } else {
-            info!("The module {} is orphaned, there is nothing to do", module.qualifier().unique());
-            return;
-        };
-
-        if module.module.up_to_date(&indexed) {
-            info!("The module {} is already up-to-date, there is nothing to do", module.qualifier().unique())
-        }
-
-
-        info!("Resolving dependency changes...");
-        let mut resolver = DependencyResolver::new(&self.index, &self.cache.index);
-        if let Err(e) = resolver.resolve(indexed) {
-            error!("Cancelling update: {e}");
-            return;
-        }
-        resolver.free(module);
-
-
-        let mut transactions = vec![];
-        transactions.append(&mut resolver.create_transactions());
-        transactions.push(ModuleTransaction::Update(module.clone(), indexed.clone()));
-
-        println!();
-
-        transaction::transact(transactions, &mut self.cache, &Installer::new(CheckedShell::new(&self.config)));
+        todo!()
     }
 
     /// Lists modules and repositories

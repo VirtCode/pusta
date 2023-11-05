@@ -18,8 +18,8 @@ use log::{debug, error};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::module::transaction::change::{AtomicChange, ChangeResult, ChangeRuntime};
-use crate::module::transaction::worker::WorkerResponse::Login;
+use crate::module::change::{AtomicChange, ChangeResult, ChangeRuntime};
+use crate::module::change::worker::WorkerResponse::Login;
 
 const WORKER_SUBCOMMAND: &str = "worker";
 const WORKER_SPAWN_TIMEOUT: u32 = 60000;
@@ -131,7 +131,7 @@ impl WorkerPortal {
     pub fn dispatch(&mut self, change: &Box<dyn AtomicChange>, root: bool, apply: bool) -> anyhow::Result<ChangeResult> {
         if let Some(worker) = self.workers.values_mut().find(|w| w.root == root) {
 
-            write_event(&mut worker.stream, WorkerRequest::Request(change, apply))?;
+            write_event(&mut worker.stream, WorkerRequest::Request(change.clone(), apply))?;
 
             if let WorkerResponse::Response(result) = read_event(&mut worker.stream)? {
                 Ok(result)
@@ -149,8 +149,8 @@ enum WorkerResponse {
 }
 
 #[derive(Serialize, Deserialize)]
-enum WorkerRequest<'a> {
-    Request(&'a Box<dyn AtomicChange>, bool)
+enum WorkerRequest {
+    Request(Box<dyn AtomicChange>, bool)
 }
 
 /// Writes an event from the view of the portal

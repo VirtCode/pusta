@@ -2,7 +2,7 @@ use std::path::Path;
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobError, JobResult};
 use serde::{Deserialize, Serialize};
 use crate::jobs::helper::process_variables;
-use crate::module::transaction::change::RunChange;
+use crate::module::change::RunChange;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct CommandJob {

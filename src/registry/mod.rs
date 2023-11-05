@@ -9,6 +9,7 @@ use chrono::{DateTime, Local, NaiveDateTime};
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
+use crate::module::install::{Gatherer, modify};
 use crate::module::Module;
 use crate::module::repository::Repository;
 use crate::output::{logger, prompt_choice_module, prompt_yn};
@@ -102,13 +103,17 @@ impl Registry {
 
         let module = if let Some(m) =
             prompt_choice_module(&modules, "Which module do you mean?")
-                .and_then(|i| modules.get(i).copied()) { m } else {
+                .and_then(|i| modules.get(i).map(|m| m.qualifier.clone())) { m } else {
 
             error!("Couldn't find a module under this name, are relevant sources added?");
             return;
         };
 
-        todo!()
+        let mut gatherer = Gatherer::default();
+        gatherer.install(module);
+
+        debug!("Starting modify");
+        modify(gatherer, &self.index, &mut self.cache, &self.config);
     }
 
     /// Uninstalls a module from the system
@@ -119,14 +124,17 @@ impl Registry {
         let module = if let Some(m) = prompt_choice_module(
             &modules.iter().map(|i| &i.module).collect(),
             "Which module do you want to remove?")
-            .and_then(|i| modules.get(i).copied()) { m } else {
+            .and_then(|i| modules.get(i).map(|m| m.qualifier().clone())) { m } else {
 
             error!("Couldn't find installed module for '{name}', is it installed?");
             return;
         };
 
-        todo!()
+        let mut gatherer = Gatherer::default();
+        gatherer.remove(module);
 
+        debug!("Starting modify");
+        modify(gatherer, &self.index, &mut self.cache, &self.config);
     }
 
     /// Updates all modules
@@ -143,13 +151,22 @@ impl Registry {
         let module = if let Some(m) = prompt_choice_module(
             &modules.iter().map(|i| &i.module).collect(),
             "Which module do you want to update?")
-            .and_then(|i| modules.get(i).copied()) { m } else {
+            .and_then(|i| modules.get(i).map(|m| m.qualifier().clone())) { m } else {
 
             error!("No module under the name '{name}' is installed, try installing one first");
             return;
         };
 
-        todo!()
+        if self.index.get(&module).is_none() {
+            error!("Module is installed but is orphaned, so it cannot be updated");
+            return;
+        }
+
+        let mut gatherer = Gatherer::default();
+        gatherer.update(module);
+
+        debug!("Starting modify");
+        modify(gatherer, &self.index, &mut self.cache, &self.config);
     }
 
     /// Lists modules and repositories
@@ -177,7 +194,7 @@ impl Registry {
             info!("{}", "No modules are currently installed".italic().dimmed())
         } else {
             for module in &self.cache.index.modules {
-                let naive: DateTime<Local> = module.installed.into();
+                let naive: DateTime<Local> = module.built.time.into();
 
                 let info = if let Some(indexed) = self.index.get(&module.module.qualifier) {
                     if !module.module.up_to_date(&indexed) {

@@ -1,3 +1,4 @@
+use std::path::Path;
 use log::{debug, error, info, warn};
 use crate::config::Config;
 use crate::jobs::BuiltJob;
@@ -6,8 +7,9 @@ use crate::module::install::depend::ModuleMotivation;
 use crate::module::Module;
 use crate::module::change::{AtomicChange, ChangeError};
 use crate::module::change::worker::WorkerPortal;
+use crate::registry::cache::Cache;
 
-pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>, config: &Config) -> anyhow::Result<Vec<Option<bool>>> {
+pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>, config: &Config, cache: &Cache) -> anyhow::Result<Vec<Option<bool>>> {
 
     info!("Spawning workers...");
     let mut workers = WorkerPortal::open()?;
@@ -46,6 +48,15 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
             continue;
         }
 
+        let cache = match cache.get_module_cache(*source) {
+            Ok(p) => {p}
+            Err(e) => {
+                error!("Fatal error occurred whilst creating cache directory: {e}");
+                results[index] = None;
+                break 'install;
+            }
+        };
+
         // revert revertible changes
         if let Some(module) = &instruction.old {
             debug!("Reverting old changes");
@@ -53,7 +64,7 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
                 .zip(&instruction.revert)
                 .filter_map(|(j, exec)| if *exec { Some(j) } else { None }).collect();
 
-            match revert_jobs(&jobs, &mut workers) {
+            match revert_jobs(&jobs, &cache, &mut workers) {
                 Ok(true) => {}
                 Ok(false) => {
                     warn!("Reversal steps for module {} did not go gracefully", source.qualifier.unique())
@@ -74,7 +85,7 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
                 .zip(&instruction.apply)
                 .filter_map(|(j, exec)| if *exec { Some(j) } else { None }).collect();
 
-            match apply_jobs(&jobs, &mut workers) {
+            match apply_jobs(&jobs, &cache, &mut workers) {
                 Ok(true) => {}
                 Ok(false) => {
                     error!("Apply steps for module {} did not go gracefully, removing its dependencies again", source.qualifier.unique());
@@ -88,7 +99,7 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
                         results[index] = Some(false);
 
                         let install_jobs: Vec<&BuiltJob> = instruction.new.as_ref().map(|m| m.jobs.iter().collect()).unwrap_or_default();
-                        match revert_jobs(&install_jobs, &mut workers) {
+                        match revert_jobs(&install_jobs, &cache, &mut workers) {
                             Ok(true) => {}
                             Ok(false) => {
                                 warn!("Reversal steps because of dependency failure for module {} did not go gracefully", source.qualifier.unique())
@@ -113,13 +124,14 @@ pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>
 }
 
 /// Applies a list of jobs
-fn apply_jobs(jobs: &[&BuiltJob], portal: &mut WorkerPortal) -> anyhow::Result<bool> {
-    for (index, job) in jobs.iter().rev().enumerate() {
-        let result = apply_changes(&job.changes, job.root, portal)?;
+fn apply_jobs(jobs: &[&BuiltJob], cache :&Path, portal: &mut WorkerPortal) -> anyhow::Result<bool> {
+    for (index, job) in jobs.iter().enumerate() {
+        let result = apply_changes(&job.changes, job.root, cache, portal)?;
 
         if !result {
             debug!("Reverting previous jobs");
-            revert_jobs(&jobs[0..index], portal)?;
+            revert_jobs(&jobs[0..index], cache, portal)?;
+            return Ok(false)
         }
     }
 
@@ -127,16 +139,16 @@ fn apply_jobs(jobs: &[&BuiltJob], portal: &mut WorkerPortal) -> anyhow::Result<b
 }
 
 /// Applies a list of changes
-fn apply_changes(changes: &[Box<dyn AtomicChange>], root: bool, portal: &mut WorkerPortal) -> anyhow::Result<bool> {
+fn apply_changes(changes: &[Box<dyn AtomicChange>], root: bool, cache: &Path, portal: &mut WorkerPortal) -> anyhow::Result<bool> {
     for (index, change) in changes.iter().enumerate() {
         debug!("Dispatching change '{}', root: {root}", change.describe());
 
-        let result = portal.dispatch(change, root, false)?;
+        let result = portal.dispatch(change, root, cache, true)?;
         if let Err(e) = result {
             process_change_error(change, root, e, true);
 
             debug!("Reverting previous changes of job");
-            revert_changes(&changes[0..index], root, portal)?;
+            revert_changes(&changes[0..index], root, cache, portal)?;
             return Ok(false)
         }
     }
@@ -145,11 +157,11 @@ fn apply_changes(changes: &[Box<dyn AtomicChange>], root: bool, portal: &mut Wor
 }
 
 /// Reverts a list of jobs
-fn revert_jobs(jobs: &[&BuiltJob], portal: &mut WorkerPortal) -> anyhow::Result<bool> {
+fn revert_jobs(jobs: &[&BuiltJob], cache: &Path, portal: &mut WorkerPortal) -> anyhow::Result<bool> {
     let mut graceful = true;
 
     for job in jobs.iter().rev() {
-        let result = revert_changes(&job.changes, job.root, portal)?;
+        let result = revert_changes(&job.changes, job.root, cache, portal)?;
         if !result { graceful = false }
     }
 
@@ -157,13 +169,13 @@ fn revert_jobs(jobs: &[&BuiltJob], portal: &mut WorkerPortal) -> anyhow::Result<
 }
 
 /// Reverts a list of changes
-fn revert_changes(changes: &[Box<dyn AtomicChange>], root: bool, portal: &mut WorkerPortal) -> anyhow::Result<bool> {
+fn revert_changes(changes: &[Box<dyn AtomicChange>], root: bool, cache: &Path, portal: &mut WorkerPortal) -> anyhow::Result<bool> {
     let mut graceful = true;
 
     for change in changes.iter().rev() {
         debug!("Dispatching reversal of change '{}', root: {root}", change.describe());
 
-        let result = portal.dispatch(change, root, false)?;
+        let result = portal.dispatch(change, root, cache, false)?;
         if let Err(e) = result {
             process_change_error(change, root, e, false);
             graceful = false;
@@ -175,11 +187,11 @@ fn revert_changes(changes: &[Box<dyn AtomicChange>], root: bool, portal: &mut Wo
 
 fn process_change_error(change: &Box<dyn AtomicChange>, root: bool, error: ChangeError, apply: bool) {
     if apply {
-        error!("Failed to apply the change '{}'{}", change.describe(), if root { "as root" } else {""});
-        error!("> {}", error.to_string());
+        error!("Failed to apply the change{}: {}", if root { "(as root)" } else {""}, change.describe());
+        error!("  {}", error.to_string());
     } else {
-        warn!("Failed to revert the change '{}'{}", change.describe(), if root { "as root" } else {""});
-        warn!("> {}", error.to_string());
+        warn!("Failed to revert the change{}: {}", if root { "(as root)" } else {""}, change.describe());
+        warn!("  {}", error.to_string());
         warn!("Change may have left unwanted traces on your system.");
     }
 }

@@ -36,7 +36,8 @@ const TEMP_PATH: &str = "temp";
 const TEMP_CACHE: &str = "cache";
 
 pub struct ChangeRuntime {
-    pub(crate) dir: PathBuf
+    pub cache: PathBuf,
+    pub temp: PathBuf
 }
 
 impl ChangeRuntime {
@@ -44,7 +45,7 @@ impl ChangeRuntime {
     fn cache_save(&self, path: &Path) -> Result<(), ChangeError> {
         let target = self.cache_dir(path);
 
-        fs_extra::copy_items(&[path], &target, &CopyOptions::default())
+        copy(path, &target)
             .map_err(|e| ChangeError::cache(path.to_owned(), target, e.to_string()))?;
 
         Ok(())
@@ -63,8 +64,7 @@ impl ChangeRuntime {
         let result = chksum::hash::hash::<SHA1, _>(path.to_string_lossy().to_string());
 
         // create path
-        let mut target = self.dir.clone();
-        target.push(TEMP_CACHE);
+        let mut target = self.cache.clone();
         target.push(result.to_hex_lowercase());
 
         target
@@ -76,8 +76,7 @@ impl ChangeRuntime {
         let result = chksum::hash::hash::<SHA1, _>(src);
 
         // create path
-        let mut path = self.dir.clone();
-        path.push(TEMP_PATH);
+        let mut path = self.temp.clone();
         path.push(result.to_hex_lowercase());
 
         // save file
@@ -238,7 +237,7 @@ impl AtomicChange for ClearChange {
 
         // Only undo cache if it was cached
         if let Some(cached) = runtime.cache_load(&self.file) {
-            fs_extra::copy_items(&[&cached], &self.file, &CopyOptions::default())
+            copy(&cached, &self.file)
                 .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to restore original file".into(), e.to_string()))?;
         }
 
@@ -311,7 +310,7 @@ impl CopyChange {
 impl AtomicChange for CopyChange {
     fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
         // Copy files
-        fs_extra::copy_items(&[&self.source], &self.file, &CopyOptions::default())
+        copy(&self.source, &self.file)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to copy file or directory to that location".into(), e.to_string()))?;
 
         Ok(())
@@ -503,5 +502,14 @@ impl AtomicChange for ScriptChange {
             vec.push(("revert script".to_string(), revert.clone()));
         }
         vec
+    }
+}
+
+/// Copies either a file or directory
+fn copy(from: &Path, to: &Path) -> fs_extra::error::Result<u64>{
+    if from.is_dir() {
+        fs_extra::dir::copy(from, to, &CopyOptions::default().overwrite(true))
+    } else {
+        fs_extra::file::copy(from, to, &fs_extra::file::CopyOptions::default().overwrite(true))
     }
 }

@@ -161,12 +161,14 @@ impl Cache {
 
 
     /// Creates a module cache folder for the job cache of the modules
-    pub fn create_module_cache(&self, module: &Module) -> anyhow::Result<PathBuf> {
+    pub fn get_module_cache(&self, module: &Module) -> anyhow::Result<PathBuf> {
         let mut path = self.folder.clone();
         path.push(DATA);
         path.push(module.qualifier.unique());
 
-        fs::create_dir_all(&path)?;
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
 
         Ok(path)
     }

@@ -3,6 +3,8 @@ use std::time::SystemTime;
 use anyhow::anyhow;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, TimestampMilliSeconds};
+use serde_with::formats::Flexible;
 use crate::config::ConfigPackage;
 use crate::jobs::{BuiltJob, Job, JobEnvironment, JobError};
 use crate::module::install::InstalledModule;
@@ -18,16 +20,29 @@ pub(super) struct ModuleInstructions {
     pub revert: Vec<bool>,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BuiltModule {
     pub jobs: Vec<BuiltJob>,
-    pub used_variables: Variable
+    pub used_variables: Variable,
+
+    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
+    pub time: SystemTime,
+}
+
+impl BuiltModule {
+    fn new(jobs: Vec<BuiltJob>, used_variables: Variable) -> Self {
+        Self {
+            jobs, used_variables,
+            time: SystemTime::now()
+        }
+    }
 }
 
 pub struct ModuleEnvironment {
-    pub(crate) magic_variables: Variable,
-    pub(crate) system_variables: Variable,
-    pub(crate) package_config: ConfigPackage
+    pub magic_variables: Variable,
+    pub system_variables: Variable,
+    pub package_config: ConfigPackage
 }
 
 /// builds a module install
@@ -55,7 +70,7 @@ pub(super) fn install(module: &Module, repository: &Repository, env: &ModuleEnvi
     Ok(ModuleInstructions {
         apply: vec![true; built.len()],
         revert: vec![],
-        new: Some(BuiltModule { jobs: built, used_variables: variables }),
+        new: Some(BuiltModule::new(built, variables)),
         old: None
     })
 }
@@ -107,8 +122,8 @@ pub(super) fn update(installed: InstalledModule, module: &Module, repository: &R
             // job has changed
             (Some(new), Some((index, (old, old_built)))) => {
                 if new == old &&
-                    old_built.resources.iter().any(|i| i.changed(&job_env.path)) &&
-                    old_built.change_variables(&installed.built.used_variables, &variables) {
+                    !old_built.resources.iter().any(|i| i.changed(&job_env.path)) &&
+                    !old_built.change_variables(&installed.built.used_variables, &variables) {
 
                     // copy job and skip
                     built.push(old_built.clone());
@@ -146,7 +161,7 @@ pub(super) fn update(installed: InstalledModule, module: &Module, repository: &R
 
     Ok(ModuleInstructions {
         apply, revert,
-        new: Some(BuiltModule { jobs: built, used_variables: variables }),
+        new: Some(BuiltModule::new(built, variables)),
         old: Some(installed.built)
     })
 }

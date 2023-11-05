@@ -1,8 +1,11 @@
 use std::{env, fs, thread};
 use std::io::{BufRead, BufReader, Read};
+use std::ops::Deref;
 use std::path::Path;
 use std::process::{Command, ExitStatus, Stdio};
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, sleep};
+use std::time::Duration;
+use colored::Colorize;
 
 /// Represents a result of a ran shell
 pub type RunResult = Result<RunData, String>;
@@ -20,24 +23,32 @@ pub struct RunData {
 /// Runs a given command, capturing and printing the output.
 fn run(mut command: Command, interactive: bool) -> RunResult {
 
-    // Set output settings
-    command.stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .stdin(if interactive { Stdio::inherit() } else { Stdio::null() });
+    // TODO: Find more beautiful solution
+    if !interactive {
+        // Set output settings
+        command.stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(if interactive { Stdio::inherit() } else { Stdio::null() });
 
-    let mut child = command.spawn().map_err(|_| "could not invoke command".to_string())?;
+        let mut child = command.spawn().map_err(|_| "could not invoke command".to_string())?;
 
-    let stdout = child.stdout.take().expect("stdout is always captured");
-    let stdout_join = read_output_parallel(stdout, interactive, "    ");
+        let stdout = child.stdout.take().expect("stdout is always captured");
+        let stdout_join = read_output_parallel(stdout, interactive);
 
-    let stderr = child.stderr.take().expect("stderr is always captured");
-    let stderr_join = read_output_parallel(stderr, interactive, "err:");
+        let stderr = child.stderr.take().expect("stderr is always captured");
+        let stderr_join = read_output_parallel(stderr, interactive);
 
-    let status = child.wait().map_err(|_| "command did not run when expected to".to_string())?;
-    let stdout = stdout_join.join().map_err(|_| "could not properly read stdout".to_string())?;
-    let stderr = stderr_join.join().map_err(|_| "could not properly read stderr".to_string())?;
+        let status = child.wait().map_err(|_| "command did not run when expected to".to_string())?;
+        let stdout = stdout_join.join().map_err(|_| "could not properly read stdout".to_string())?;
+        let stderr = stderr_join.join().map_err(|_| "could not properly read stderr".to_string())?;
 
-    Ok(RunData { status, stdout, stderr })
+        Ok(RunData { status, stdout, stderr })
+    } else {
+        let mut child = command.spawn().map_err(|_| "could not invoke command".to_string())?;
+        let status = child.wait().map_err(|_| "command did not run when expected to".to_string())?;
+
+        Ok(RunData { status, stdout: "see console".to_string(), stderr: "see console".to_string() })
+    }
 }
 
 /// Returns the executable of the shell to use
@@ -62,19 +73,26 @@ pub fn run_script(path: &Path, dir: &Path, interactive: bool) -> RunResult {
 }
 
 /// Reads the output of a given stream to a string and may print it to the console in the process
-fn read_output_parallel<T: Read + Send + 'static>(output: T, print: bool, prefix: &str) -> JoinHandle<String> {
-    let prefix = prefix.to_owned();
-
+fn read_output_parallel<T: Read + Send + 'static>(output: T, print: bool) -> JoinHandle<String> {
     thread::spawn(move || {
         let mut buffer = String::new();
 
-        BufReader::new(output)
-            .lines()
-            .filter_map(|line| line.ok())
-            .for_each(|l| {
-                buffer.push_str(&l);
-                if print { println!("{prefix}{l}") };
-            });
+        let mut read = BufReader::new(output);
+        let mut byte_buffer = [0u8; 1024];
+        loop {
+            match read.read(&mut byte_buffer)
+                .map(|size| {
+                    if size == 0 { None }
+                    else { Some(String::from_utf8_lossy(&byte_buffer[0..size]).to_string()) }
+                }) {
+                Ok(Some(string)) => {
+                    buffer.push_str(&string);
+
+                    if print { print!("{}", string); }
+                }
+                Ok(None) | Err(_) => { break; }
+            }
+        }
 
         buffer
     })

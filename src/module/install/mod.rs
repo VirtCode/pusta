@@ -7,12 +7,10 @@ use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use std::time::SystemTime;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use colored::Colorize;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, TimestampMilliSeconds};
-use serde_with::formats::Flexible;
 use crate::config::Config;
 use crate::jobs::BuiltJob;
 use crate::module::install::build::{BuiltModule, ModuleEnvironment, ModuleInstructions};
@@ -28,55 +26,36 @@ mod build;
 pub mod depend;
 mod run;
 
-enum Action {
-    Install {
-        module: Module,
-    },
-    Remove {
-        module: InstalledModule,
-    },
-    Update {
-        old: InstalledModule,
-        new: Module,
-    }
+/// This struct stores a gathered change
+enum Gathered {
+    Install(ModuleQualifier),
+    Remove(ModuleQualifier),
+    Update(ModuleQualifier)
 }
 
-
-pub enum Gathered<'a> {
-    Install {
-        module: &'a Module,
-    },
-    Remove {
-        module: &'a InstalledModule,
-    },
-    Update {
-        old: &'a InstalledModule,
-        new: &'a Module,
-    }
-}
-
+/// This struct helps gathering module changes
 #[derive(Default)]
-struct GatherInstaller<'a> {
-    gathered: Vec<Gathered<'a>>
+pub struct Gatherer {
+    gathered: Vec<Gathered>
 }
 
-impl <'a>GatherInstaller<'a> {
+impl Gatherer {
 
-    pub fn install(mut self, module: &'a Module) {
-        self.gathered.push(Gathered::Install { module });
+    pub fn install(&mut self, module: ModuleQualifier) {
+        self.gathered.push(Gathered::Install(module));
     }
 
-    fn update(&mut self, old: &'a InstalledModule, module: &'a Module) {
-        self.gathered.push(Gathered::Update { old, new: module })
+    pub fn update(&mut self, module: ModuleQualifier) {
+        self.gathered.push(Gathered::Update(module))
     }
 
-    fn reinstall(&mut self, old: &'a InstalledModule, module: &'a Module) {
-        self.gathered.push(Gathered::Remove { module: old, });
-        self.gathered.push(Gathered::Install { module })
+    pub fn reinstall(&mut self, module: ModuleQualifier) {
+        self.gathered.push(Gathered::Remove(module.clone()));
+        self.gathered.push(Gathered::Install(module));
     }
 
-    fn remove(&mut self, module: &'a InstalledModule) {
-        self.gathered.push(Gathered::Remove { module })
+    pub fn remove(&mut self, module: ModuleQualifier) {
+        self.gathered.push(Gathered::Remove(module));
     }
 
     fn gather(self: Self, index: &Index<Module>, local: &Index<InstalledModule>) -> anyhow::Result<Vec<Scheduled>> {
@@ -87,12 +66,16 @@ impl <'a>GatherInstaller<'a> {
 
         for gathered in self.gathered {
             match gathered {
-                Gathered::Install { module } => {
+                Gathered::Install(module) => {
+                    let module = index.get(&module).context("module disappeared unexpectedly")?;
+
                     modules.append(&mut resolver.resolve(module, local, index)?.into_iter().map(|(m, i)| {
                         Scheduled::Install { module: m, motivation: i, }
                     }).collect());
                 }
-                Gathered::Remove { module } => {
+                Gathered::Remove(module) => {
+                    let module = local.get(&module).context("installed module disappeared unexpectedly")?;
+
                     // TODO: Check dependencies and Free modules
                     if resolver.can_remove(module.qualifier()) {
                         modules.push(Scheduled::Remove { module: module.clone() })
@@ -100,7 +83,10 @@ impl <'a>GatherInstaller<'a> {
                         return Err(anyhow!("screw dependencies"));
                     }
                 }
-                Gathered::Update { old, new } => {
+                Gathered::Update(module) => {
+                    let old = local.get(&module).context("installed module disappeared unexpectedly")?;
+                    let new = index.get(&module).context("module disappeared unexpectedly")?;
+
                     // TODO: Check dependencies and free modules
                     modules.push(Scheduled::Update { old: old.clone(), new: new.clone() })
                 }
@@ -111,7 +97,7 @@ impl <'a>GatherInstaller<'a> {
     }
 }
 
-pub enum Scheduled {
+enum Scheduled {
     Install {
         module: Module,
         motivation: ModuleMotivation
@@ -125,16 +111,11 @@ pub enum Scheduled {
     }
 }
 
-#[serde_as]
+/// Holds an installed instance of a module
 #[derive(Serialize, Deserialize, Clone)]
 pub struct InstalledModule {
     pub module: Module,
     pub built: BuiltModule,
-
-    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub installed: SystemTime,
-    #[serde_as(as = "TimestampMilliSeconds<String, Flexible>")]
-    pub updated: SystemTime,
 }
 
 impl Indexable for InstalledModule {
@@ -143,10 +124,10 @@ impl Indexable for InstalledModule {
     fn qualifier(&self) -> &ModuleQualifier { self.module.qualifier() }
 }
 
-pub enum ModifyType {
+/// Indicates what a modification is doing
+enum ModifyType {
     Install, Remove, Update
 }
-
 impl Display for ModifyType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -159,6 +140,7 @@ impl Display for ModifyType {
 
 /// Builds the changes to a uniform format
 fn build(scheduled: Vec<Scheduled>, cache: &Cache, config: &Config) -> anyhow::Result<Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>>{
+    info!("Building modules...");
     let mut built = vec![];
 
     let env = ModuleEnvironment {
@@ -205,7 +187,7 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
         let response = prompt("Apply changes or fine grained view? [Y/n/f] ").to_lowercase();
         let response = response.trim();
 
-        if response.starts_with("y") || response.is_empty() { return false; }
+        if response.starts_with("y") || response.is_empty() { return true; }
         if response.starts_with("n") { return false; }
         if response.starts_with("f") { break; }
     }
@@ -256,7 +238,7 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
         }
 
         if let Some(new) = &built.new {
-            print_jobs(&new.jobs, &built.revert, false, &mut file_map);
+            print_jobs(&new.jobs, &built.apply, true, &mut file_map);
         }
 
         info!("");
@@ -275,36 +257,79 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
     }
 }
 
-fn save(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>, result: Vec<Option<bool>>) {
+/// Saves the changes to the disk
+fn save(changes: Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>, result: Vec<Option<bool>>, cache: &mut Cache) -> anyhow::Result<()> {
+    info!("Persisting changes to disk...");
 
     for ((module, instr, _, t), real) in changes.into_iter().zip(result).filter_map(|(t, result)| result.map(|b| (t,b))) {
+        if !real {
+            // failed
+            cache.remove_module(module.qualifier())?;
+            cache.delete_module_cache(&module)?;
 
+        } else  {
+            // success
+            match t {
+                ModifyType::Install | ModifyType::Update => {
+                    let built = instr.new.expect("installed module should contain this");
 
+                    let installed = InstalledModule {
+                        module, built,
+                    };
+
+                    cache.install_module(installed)?;
+                }
+                ModifyType::Remove => {
+                    cache.remove_module(module.qualifier())?;
+                    cache.delete_module_cache(&module)?;
+                }
+            }
+        }
     }
+
+    Ok(())
 }
 
-fn modify(scheduled: Vec<Scheduled>, cache: &mut Cache, config: &Config) {
-
-    // build
-    let built = match build(scheduled, &cache, config) {
-        Ok(b) => { b }
+pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, config: &Config) {
+    // 1. gather
+    let scheduled = match gatherer.gather(index, &cache.index) {
+        Ok(s) => { s }
         Err(e) => {
-            error!("{}", e);
+            error!("failed to resolve dependencies: {e}");
             return;
         }
     };
 
-    // ask
+    // 2. build
+    let built = match build(scheduled, &cache, config) {
+        Ok(b) => { b }
+        Err(e) => {
+            error!("{e}");
+            return;
+        }
+    };
+
+    // 3. ask
     if !ask(&built, &config.system.file_previewer) {
         error!("installation cancelled by user");
         return;
     }
 
-    // run
-    let result = run::run(&built.iter().map(|(m, i, mo, t)| (i,m,mo)).collect(), &config);
+    // 4. run
+    let result = match run::run(&built.iter().map(|(m, i, mo, _)| (i, m, mo)).collect(), &config, &cache) {
+        Ok(r) => { r }
+        Err(e) => {
+            error!("failed to initiate run: {e}");
+            return;
+        }
+    };
 
-    // save
-
+    // 5. save
+    if let Err(e) = save(built, result, cache) {
+        error!("failed to save changes to disk: {e}");
+        error!("pusta will not remember that these changes were made");
+        return;
+    }
 }
 
 
@@ -312,6 +337,8 @@ const TMP_PREVIEW_PATH: &str = "/tmp/pusta/preview";
 
 /// Previews data in a file previewer, by first saving it to disk
 pub fn preview_file(previewer: &str, data: &str) -> anyhow::Result<()>{
+    fs::create_dir_all("/tmp/pusta")?;
+
     fs::write(Path::new(TMP_PREVIEW_PATH), data)?;
 
     let mut command = Command::new(previewer);

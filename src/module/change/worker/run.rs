@@ -27,18 +27,25 @@ fn worker(socket_id: Uuid, id: Uuid) -> anyhow::Result<()> {
         .context("socket should be online to connect to")?;
 
     // Create runtime
-    let runtime = ChangeRuntime { dir: {
+    let temp =  {
         let mut path = PathBuf::from(WORKER_TMP_PATH);
         path.push(id.to_string());
         path
-    }};
+    };
+
+    let mut runtime = ChangeRuntime {
+        cache: temp.clone(),
+        temp
+    };
 
     // Ready
     write_event(&mut socket, WorkerResponse::Login(id))?;
 
     while let Ok(request) = read_event(&mut socket) {
         match request {
-            WorkerRequest::Request(change, apply) => {
+            WorkerRequest::Request(change, apply, cache) => {
+                runtime.cache = cache;
+
                 let response =
                     if apply { change.apply(&runtime) }
                     else { change.revert(&runtime) };

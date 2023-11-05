@@ -42,15 +42,15 @@ impl ResourceItem {
         Ok(Self { path, checksum })
     }
 
-    /// checks the checksum compared to the new one
+    /// checks the checksum compared to the new one, returns true if a change was detected
     pub fn changed(&self, parent: &Path) -> bool {
         let mut file = parent.to_owned();
         file.push(&self.path);
 
         File::open(file).context("failed to read file for checksum")
             .and_then(|f| chksum::<SHA1, _>(f).context("failed to calculate checksum"))
-            .map(|c| c.to_hex_lowercase() == self.checksum)
-            .unwrap_or(false)
+            .map(|c| c.to_hex_lowercase() != self.checksum)
+            .unwrap_or(true)
     }
 
 }

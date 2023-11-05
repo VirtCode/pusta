@@ -5,7 +5,7 @@ use std::{env, fs, io, thread};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::os::fd::AsFd;
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::str::FromStr;
 use std::sync::mpsc;
@@ -25,7 +25,7 @@ const WORKER_SUBCOMMAND: &str = "worker";
 const WORKER_SPAWN_TIMEOUT: u32 = 60000;
 
 const SOCKET_PATH: &str = "/tmp/pusta/portal/";
-const WORKER_TMP_PATH: &str = "/tmp/pusta/";
+const WORKER_TMP_PATH: &str = "/tmp/pusta/temp/";
 
 /// This struct represents a worker portal to which multiple workers are attached and can run jobs
 pub struct WorkerPortal {
@@ -128,10 +128,10 @@ impl WorkerPortal {
     }
 
     /// Runs a change on the loaded worker
-    pub fn dispatch(&mut self, change: &Box<dyn AtomicChange>, root: bool, apply: bool) -> anyhow::Result<ChangeResult> {
+    pub fn dispatch(&mut self, change: &Box<dyn AtomicChange>, root: bool, cache: &Path, apply: bool) -> anyhow::Result<ChangeResult> {
         if let Some(worker) = self.workers.values_mut().find(|w| w.root == root) {
 
-            write_event(&mut worker.stream, WorkerRequest::Request(change.clone(), apply))?;
+            write_event(&mut worker.stream, WorkerRequest::Request(change.clone(), apply, cache.to_owned()))?;
 
             if let WorkerResponse::Response(result) = read_event(&mut worker.stream)? {
                 Ok(result)
@@ -150,7 +150,7 @@ enum WorkerResponse {
 
 #[derive(Serialize, Deserialize)]
 enum WorkerRequest {
-    Request(Box<dyn AtomicChange>, bool)
+    Request(Box<dyn AtomicChange>, bool, PathBuf)
 }
 
 /// Writes an event from the view of the portal

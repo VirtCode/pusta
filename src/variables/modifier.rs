@@ -1,9 +1,10 @@
+use regex::Regex;
 use crate::variables::{Value, VariableError};
 use crate::variables::context::{Expression, ExpressionModifier};
 use crate::variables::modifier::ModifierErrorType::{ParameterAmount, ParameterType, VariableType};
 
 /// This trait is a variable modifier
-trait Modifier {
+pub trait Modifier {
     fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError>;
 }
 
@@ -16,14 +17,14 @@ pub struct ModifierError {
 impl ModifierError {
 
     /// Creates a simple modifier error without notes
-    pub fn simple(error: ModifierErrorType) -> Self {
+    fn simple(error: ModifierErrorType) -> Self {
         ModifierError {
             error, notes: vec![],
         }
     }
 
     /// Creates a modifier error with notes
-    pub fn noted(error: ModifierErrorType, notes: Vec<ModifierErrorNote>) -> Self {
+    fn noted(error: ModifierErrorType, notes: Vec<ModifierErrorNote>) -> Self {
         ModifierError {
             error, notes
         }
@@ -148,3 +149,18 @@ impl Modifier for EqModifier {
         }))
     }
 }
+
+//struct FormatColorModifier;
+
+//impl Modifier for FormatColorModifier {
+ //   fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
+  //      let input = Regex::new("^#?(?<r>[a-fA-F0-9]{2})(?<g>[a-fA-F0-9]{2})(?<b>[a-fA-F0-9]{2})(?<a>[a-fA-F0-9]{2})?$").expect("regex should be compilable");
+//
+ //       let color = if let Value::String(s) = variable {
+//
+ //       } else {
+  //          return Err(
+   //         )
+    //    };
+//    }
+//}

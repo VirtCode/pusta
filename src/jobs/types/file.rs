@@ -30,14 +30,14 @@ impl FileJob {
                 built.change(Box::new(WriteChange::new(resource, target)));
             },
             (false, true) => {
-                resource_mark(&source, env, built)?;
+                let path = resource_mark(&source, env, built)?;
 
-                built.change(Box::new(CopyChange::new(target, source)));
+                built.change(Box::new(CopyChange::new(target, path)));
             },
             (true, _) => {
-                resource_mark(&source, env, built)?;
+                let path = resource_mark(&source, env, built)?;
 
-                built.change(Box::new(LinkChange::new(target, source)));
+                built.change(Box::new(LinkChange::new(target, path)));
             }
         }
 

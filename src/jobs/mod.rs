@@ -1,6 +1,7 @@
 mod types;
 mod helper;
 
+use std::fs;
 use std::fs::File;
 use std::io::Error;
 use std::path::{Path, PathBuf};
@@ -36,8 +37,13 @@ impl ResourceItem {
         let mut file = parent.to_owned();
         file.push(&path);
 
-        let handle = File::open(file).map_err(|e| JobError::Other("could not open file to calculate checksum".into(), e.into()))?;
-        let checksum = chksum::<SHA1, _>(handle).map_err(|e| JobError::Other("could not calculate checksum".into(), e.into()))?.to_hex_lowercase();
+        let checksum = if file.is_dir() {
+            let handle = fs::read_dir(file).map_err(|e| JobError::Other("could not open directory to calculate checksum".into(), e.into()))?;
+            chksum::<SHA1, _>(handle).map_err(|e| JobError::Other("could not calculate checksum of directory".into(), e.into()))?.to_hex_lowercase()
+        } else {
+            let handle = File::open(file).map_err(|e| JobError::Other("could not open file to calculate checksum".into(), e.into()))?;
+            chksum::<SHA1, _>(handle).map_err(|e| JobError::Other("could not calculate checksum".into(), e.into()))?.to_hex_lowercase()
+        };
 
         Ok(Self { path, checksum })
     }

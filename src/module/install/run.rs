@@ -9,7 +9,7 @@ use crate::module::change::{AtomicChange, ChangeError};
 use crate::module::change::worker::WorkerPortal;
 use crate::registry::cache::Cache;
 
-pub fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>, config: &Config, cache: &Cache) -> anyhow::Result<Vec<Option<bool>>> {
+pub(super) fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotivation)>, config: &Config, cache: &Cache) -> anyhow::Result<Vec<Option<bool>>> {
 
     info!("Spawning workers...");
     let mut workers = WorkerPortal::open()?;

@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{Error, ErrorKind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use crate::jobs::{BuiltJob, JobEnvironment, JobError, JobResult, ResourceItem};
 use crate::variables::context::read_context;
 use crate::variables::evaluate::{evaluate, VariableEvalCounter};
@@ -26,7 +26,7 @@ pub fn resource_dir(file: &Path, env: &JobEnvironment) -> JobResult<bool> {
 }
 
 // checks that a resource exists and throws an error otherwise
-pub fn resource_mark(file: &Path, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<()> {
+pub fn resource_mark(file: &Path, env: &JobEnvironment, built: &mut BuiltJob) -> JobResult<PathBuf> {
     let mut path = env.path.clone();
     path.push(file);
 
@@ -38,7 +38,7 @@ pub fn resource_mark(file: &Path, env: &JobEnvironment, built: &mut BuiltJob) ->
     // TODO: Do this at the correct point in time, after the prompt
     built.mark_resource(ResourceItem::create(file.to_owned(), &env.path)?);
 
-    Ok(())
+    Ok(path)
 }
 
 // processes the variables inside a given string, and throws an error if it could not be resolved

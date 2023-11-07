@@ -45,6 +45,11 @@ impl ChangeRuntime {
     fn cache_save(&self, path: &Path) -> Result<(), ChangeError> {
         let target = self.cache_dir(path);
 
+        // Skip symlinks, because they cannot be copied
+        if path.is_symlink() {
+            return Ok(())
+        }
+
         copy(path, &target)
             .map_err(|e| ChangeError::cache(path.to_owned(), target, e.to_string()))?;
 
@@ -77,6 +82,9 @@ impl ChangeRuntime {
 
         // create path
         let mut path = self.temp.clone();
+        fs::create_dir_all(&path)
+            .map_err(|e| ChangeError::temp(src.to_owned(), path.clone(), e.to_string()))?;
+
         path.push(result.to_hex_lowercase());
 
         // save file
@@ -349,6 +357,12 @@ impl LinkChange {
 #[typetag::serde]
 impl AtomicChange for LinkChange {
     fn apply(&self, runtime: &ChangeRuntime) -> ChangeResult {
+        // Delete old file if it exists
+        if self.file.exists() {
+            fs::remove_file(&self.file)
+                .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to remove file to create symlink".into(), e.to_string()))?;
+        }
+
         // Link files
         symlink(&self.source, &self.file)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to create symlink there".into(), e.to_string()))

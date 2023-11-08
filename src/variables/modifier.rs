@@ -106,6 +106,7 @@ pub fn get_modifier(name: &str) -> Option<Box<dyn Modifier>> {
     Some(match name {
         UPPER_CASE_MODIFIER => { Box::new(UpperCaseModifier) }
         EQ_MODIFIER => { Box::new(EqModifier) }
+        FORMAT_COLOR_MODIFIER => { Box::new(FormatColorModifier) }
         _ => { return None }
     })
 }
@@ -150,17 +151,71 @@ impl Modifier for EqModifier {
     }
 }
 
-//struct FormatColorModifier;
+/// This modifier formats rgb colors akin to how date formatters work
+struct FormatColorModifier;
+const FORMAT_COLOR_MODIFIER: &str = "format-color";
+impl Modifier for FormatColorModifier {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
+        let input = Regex::new("^#?(?<r>[a-fA-F0-9]{2})(?<g>[a-fA-F0-9]{2})(?<b>[a-fA-F0-9]{2})(?<a>[a-fA-F0-9]{2})?$").expect("regex should be compilable");
+        let pattern = Regex::new("%(?<f>[XFD])(?<c>[rgba])").expect("regex should be compilable");
 
-//impl Modifier for FormatColorModifier {
- //   fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
-  //      let input = Regex::new("^#?(?<r>[a-fA-F0-9]{2})(?<g>[a-fA-F0-9]{2})(?<b>[a-fA-F0-9]{2})(?<a>[a-fA-F0-9]{2})?$").expect("regex should be compilable");
-//
- //       let color = if let Value::String(s) = variable {
-//
- //       } else {
-  //          return Err(
-   //         )
-    //    };
-//    }
-//}
+        // capture color
+        let (r,g,b,a) = if let Value::String(s) = variable {
+            if let Some(m) = input.captures(&s) {
+                (m.name("r").and_then(|m| u8::from_str_radix(m.as_str(), 16).ok()).expect("regex matched"),
+                 m.name("g").and_then(|m| u8::from_str_radix(m.as_str(), 16).ok()).expect("regex matched"),
+                 m.name("b").and_then(|m| u8::from_str_radix(m.as_str(), 16).ok()).expect("regex matched"),
+                 m.name("a").and_then(|m| u8::from_str_radix(m.as_str(), 16).ok()).unwrap_or(255u8))
+            } else {
+                return Err( ModifierError::noted(VariableType(Value::String("".into())), vec![ModifierErrorNote::Variable("string must be a color of format (#)RRGGBB(AA)".into())]))
+            }
+        } else {
+            return Err( ModifierError::simple(VariableType(Value::String("".into()))))
+        };
+
+        // process format
+        if parameters.len() != 1 { return Err(ModifierError::simple(ParameterAmount(1))) }
+        if let Value::String(format) = parameters.get(0).expect("already tested") {
+            let mut references = vec![];
+
+            for capture in pattern.captures_iter(format) {
+                let component = capture.name("c").expect("regex matched").as_str();
+                let format = capture.name("f").expect("regex matched").as_str();
+
+                let component = match component {
+                    "r" => { r },
+                    "g" => { g },
+                    "b" => { b },
+                    "a" => { a },
+                    _ => { unreachable!("regex only allows r g b or a") }
+                };
+
+                let result = match format {
+                    "X" => { format!("{component:02x}") }
+                    "D" => { format!("{component}") }
+                    "F" => { format!("{:.3}", component as f32 / 255f32) }
+                    _ => { unreachable!("regex only allows X D and F") }
+                };
+
+                references.push((capture.get(0).expect("regex matched").range(), result));
+            }
+
+            // assemble result string
+            let mut formatted = String::new();
+            let mut index = 0;
+
+            for (range, string) in references {
+                formatted += &format[index..range.start];
+                index = range.end;
+
+                formatted += &string;
+            }
+
+            formatted += &format[index..format.len()];
+
+            Ok(Value::String(formatted))
+        } else {
+            Err(ModifierError::simple(ParameterType(0, Value::String("".into()))))
+        }
+    }
+}

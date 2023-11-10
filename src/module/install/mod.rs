@@ -123,7 +123,7 @@ impl InstalledModule {
         if let Some(repo) = cache.get_repository(self.module.qualifier.repository()) {
             let empty = Variable::base();
             let variables = merge_variables(new.variables.as_ref().unwrap_or_else(|| &empty),
-                                            repo.variables.as_ref().unwrap_or_else(|| &empty),
+                                            repo.load_variables().as_ref().unwrap_or_else(|| &empty),
                                             system_variables, magic_variables);
 
             // either the module sources have changed

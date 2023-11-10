@@ -23,9 +23,6 @@ pub struct Repository {
 
     pub location: PathBuf,
     pub name: String,
-
-    pub variables: Option<Variable>
-
 }
 
 impl Repository {
@@ -46,8 +43,7 @@ impl Repository {
 
         Ok(Repository {
             location: fs::canonicalize(folder)?,
-            name,
-            variables: config.variables
+            name
         })
     }
 
@@ -73,6 +69,14 @@ impl Repository {
         }
 
         Ok(modules)
+    }
+
+    /// Loads the variables from the repository config
+    pub fn load_variables(&self) -> Option<Variable>{
+        let path = self.location.join(REPOSITORY_CONFIG);
+
+        let config: RepositoryConfig = serde_yaml::from_reader(File::open(&path).ok()?).ok()?;
+        return config.variables;
     }
 }
 

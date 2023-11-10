@@ -54,7 +54,7 @@ impl Registry {
     pub fn add_repository(&mut self, repository: &Path, alias: Option<&str>) {
         info!("Adding repository at '{}' to sources{}...",
                         repository.canonicalize().unwrap().to_string_lossy(),
-                        alias.as_ref().map(|s| format!(" (under alias '{s}')")).unwrap_or_default());
+                        alias.as_ref().map(|s| format!(" (under custom alias '{s}')")).unwrap_or_default());
 
         let repository = match Repository::load(repository, alias)  {
             Ok(r) => r,

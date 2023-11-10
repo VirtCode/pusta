@@ -51,7 +51,7 @@ pub(super) fn install(module: &Module, repository: &Repository, env: &ModuleEnvi
 
     let empty = Variable::base();
     let variables = merge_variables(module.variables.as_ref().unwrap_or_else(|| &empty),
-                                    repository.variables.as_ref().unwrap_or_else(|| &empty),
+                                    repository.load_variables().as_ref().unwrap_or_else(|| &empty),
                                     &env.system_variables, &env.magic_variables);
 
     let job_env = JobEnvironment {
@@ -93,7 +93,7 @@ pub(super) fn update(installed: InstalledModule, module: &Module, repository: &R
     // build variables and env
     let empty = Variable::base();
     let variables = merge_variables(module.variables.as_ref().unwrap_or_else(|| &empty),
-                                    repository.variables.as_ref().unwrap_or_else(|| &empty),
+                                    repository.load_variables().as_ref().unwrap_or_else(|| &empty),
                                     &env.system_variables, &env.magic_variables);
 
     let job_env = JobEnvironment {

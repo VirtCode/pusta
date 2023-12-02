@@ -5,21 +5,23 @@ use regex::Regex;
 use crate::variables::VariableError;
 
 /// Matches a keyword, e.g. !list
-static REGEX_KEYWORD: Lazy<Regex> = lazy_regex!(r"^\s*!([A-Za-z]+)\s+");
+static REGEX_KEYWORD: Lazy<Regex> = lazy_regex!(r"^\s*!([A-Za-z]+)\s*");
 
 /// Matches a boolean literal, e.g. true
-const REGEX_LITERAL_BOOLEAN: Lazy<Regex> = lazy_regex!(r"^\s*([A-Za-z]+)\s+");
+const REGEX_LITERAL_BOOLEAN: Lazy<Regex> = lazy_regex!(r"^\s*([A-Za-z]+)\s*");
 /// Matches a number literal, e.g. -1345.2768
-const REGEX_LITERAL_NUMBER: Lazy<Regex> = lazy_regex!(r"^\s*(-?[0-9]+(?:\.[0-9]+)?)\s+");
+const REGEX_LITERAL_NUMBER: Lazy<Regex> = lazy_regex!(r"^\s*(-?[0-9]+(?:\.[0-9]+)?)\s*");
 /// Matches a string literal, e.g. "a string literal with inside \"quotes\" and newlines \n"
-const REGEX_LITERAL_STRING: Lazy<Regex> = lazy_regex!(r#"^\s*"(.*?[^\\])"\s+"#);
+const REGEX_LITERAL_STRING: Lazy<Regex> = lazy_regex!(r#"^\s*"(.*?[^\\])"\s*"#);
 
 /// Matches a variable name, e.g. theme.my-fancy-variable.color
-const REGEX_VARIABLE_NAME: Lazy<Regex> = lazy_regex!(r"^\s*([A-Za-z-_]+(?:\.[A-Za-z-]+)*)(?:(?:\s+)|(?::))");
+const REGEX_VARIABLE_NAME: Lazy<Regex> = lazy_regex!(r"^\s*([A-Za-z-_]+(?:\.[A-Za-z-]+)*)\s*(?::)?");
 /// Matches a variable modifier name, e.g. :my-awesome-modifier
-const REGEX_VARIABLE_MODIFIER_NAME: Lazy<Regex> = lazy_regex!(r"^:([A-Za-z-]+)");
+const REGEX_VARIABLE_MODIFIER_NAME: Lazy<Regex> = lazy_regex!(r"^\s*:([A-Za-z-]+)");
 /// Matches an opening brace for a modifier, e.g. (
 const REGEX_VARIABLE_MODIFIER_OPEN: Lazy<Regex> = lazy_regex!(r"^\(\s*");
+/// matches a comma for a modifier e.g. ,
+const REGEX_VARIABLE_MODIFIER_SPLIT: Lazy<Regex> = lazy_regex!(r"^\s*,\s*");
 /// Matches a closing brace for a modifier, e.g. )
 const REGEX_VARIABLE_MODIFIER_CLOSE: Lazy<Regex> = lazy_regex!(r"^\s*\)");
 
@@ -51,7 +53,7 @@ pub enum TokenType {
 }
 
 /// Stores a literal, either a number, string or boolean
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenLiteral {
     String(String),
     Number(f64),
@@ -134,17 +136,37 @@ pub fn read_token_at(input: &str, position: usize) -> Result<Token, VariableErro
             if let Some(modifier_open_cap) = REGEX_VARIABLE_MODIFIER_OPEN.captures(&input[pos..]) {
 
                 let mut token_pos = shift_range(modifier_open_cap.get(0).expect("regex should have group").range(),pos).end;
+                let mut first = true;
                 loop {
-                    // Break when having read closing brace
+                    // either read close or comma
                     if let Some(close_cap) = REGEX_VARIABLE_MODIFIER_CLOSE.captures(&input[token_pos..]) {
                         pos = shift_range(close_cap.get(0).expect("regex should have group").range(), token_pos).end; // Position of next token is now after the brace
                         break;
-                    }
 
-                    // Read token which is argument
-                    let mut token = read_token_at(input, token_pos)?;
-                    token_pos = token.range.end;
-                    arguments.push(token);
+                    } else if first {
+                        // can match token without comma, since it may be the first
+                        first = false;
+
+                        let mut token = read_token_at(input, token_pos)?;
+                        token_pos = token.range.end;
+                        arguments.push(token);
+
+                    } else if let Some(comma_cap) = REGEX_VARIABLE_MODIFIER_SPLIT.captures(&input[token_pos..]) {
+                        // next token comes after this
+                        token_pos = shift_range(comma_cap.get(0).expect("regex should have group").range(),token_pos).end;
+
+                        let mut token = read_token_at(input, token_pos)?;
+                        token_pos = token.range.end;
+                        arguments.push(token);
+
+                    } else {
+                        return Err(VariableError {
+                            title: "expected parameter or nothing".to_string(),
+                            primary: (token_pos..token_pos, "expected another parameter separated by comma or ending brace of modifier".to_string()),
+                            secondary: vec![],
+                            summary: "did not encounter ',', or ')', to end or continue parameter list".to_string(),
+                        })
+                    }
                 }
             }
 
@@ -173,4 +195,205 @@ pub fn shift_range(mut range: Range<usize>, position: usize) -> Range<usize> {
     range.end += position;
 
     range
+}
+
+#[cfg(test)]
+mod test {
+    use crate::variables::token::{read_token_at, Token, TokenLiteral, TokenType};
+
+    #[test]
+    fn variable_simple() {
+        let input = "_.first.second.third:mod-one:mod-two:mod-three";
+        let token = read_token_at(input, 0).unwrap();
+
+        match token.token {
+            TokenType::Variable { name, modifiers, .. } => {
+                assert_eq!(name, "_.first.second.third");
+
+                assert_eq!(modifiers[0].0, "mod-one");
+                assert_eq!(modifiers[1].0, "mod-two");
+                assert_eq!(modifiers[2].0, "mod-three");
+
+                assert!(modifiers[0].1.is_empty());
+                assert!(modifiers[1].1.is_empty());
+                assert!(modifiers[2].1.is_empty());
+            }
+            _ => { unreachable!("it must be a variable") }
+        }
+    }
+
+    #[test]
+    fn variable_nested() {
+
+        // with and without spaces
+        let inputs = vec![
+            "_.first.second.third:mod-one( _.fourth:mod-other, _.fourth-two ):mod-two( _.fifth:mod-another:mod-yet-another( pusta.sixth ) )", // this was the only possibility in v0.3.0
+            "_.first.second.third:mod-one(_.fourth:mod-other,_.fourth-two):mod-two(_.fifth:mod-another:mod-yet-another(pusta.sixth))",
+            "_.first.second.third:mod-one(\n            _.fourth:mod-other  ,\n      _.fourth-two \n):mod-two(    _.fifth:mod-another:mod-yet-another(   pusta.sixth))",
+            "_.first.second.third\n    :mod-one(_.fourth:mod-other,_.fourth-two)\n    :mod-two(_.fifth:mod-another:mod-yet-another(pusta.sixth))",
+        ];
+
+        for i in inputs {
+            let token = read_token_at(i, 0).map_err(|e| {
+                e.print("test", i);
+                panic!("parsing failed");
+            }).unwrap();
+
+            match token.token {
+                TokenType::Variable { name, modifiers, .. } => {
+                    assert_eq!(name, "_.first.second.third");
+
+                    assert_eq!(modifiers[0].0, "mod-one");
+                    assert_eq!(modifiers[1].0, "mod-two");
+
+                    // first modifier
+                    let params_mod_one = &modifiers[0].1;
+                    match &params_mod_one[0].token {
+                        TokenType::Variable { name, modifiers, .. } => {
+                            assert_eq!(name, "_.fourth");
+                            assert_eq!(modifiers[0].0, "mod-other");
+                        }
+                        _ => { unreachable!("it must be a variable") }
+                    }
+                    match &params_mod_one[1].token {
+                        TokenType::Variable { name, .. } => { assert_eq!(name, "_.fourth-two") }
+                        _ => { unreachable!("it must be a variable") }
+                    }
+
+                    // second modifier
+                    let params_mod_two = &modifiers[1].1;
+                    match &params_mod_two[0].token {
+                        TokenType::Variable { name, modifiers, .. } => {
+                            assert_eq!(name, "_.fifth");
+                            assert_eq!(modifiers[0].0, "mod-another");
+                            assert_eq!(modifiers[1].0, "mod-yet-another");
+
+                            match &modifiers[1].1[0].token {
+                                TokenType::Variable { name, .. } => { assert_eq!(name, "pusta.sixth") }
+                                _ => unreachable!("it must be a variable")
+                            }
+                        }
+                        _ => { unreachable!("it must be a variable") }
+                    }
+                }
+                _ => { unreachable!("it must be a variable") }
+            }
+        }
+    }
+
+    #[test]
+    fn variable_literals() {
+        let input = "var:mod(-12,\"a  \\\"string\\\" with , inside    \"\n, yEs,nO, \"true\",-123.5423       )";
+        let outputs = vec![
+            TokenLiteral::Number(-12f64),
+            TokenLiteral::String("a  \"string\" with , inside    ".to_string()),
+            TokenLiteral::Boolean(true),
+            TokenLiteral::Boolean(false),
+            TokenLiteral::String("true".to_string()),
+            TokenLiteral::Number(-123.5423)
+        ];
+
+        let token = read_token_at(input, 0).unwrap();
+
+        match token.token {
+            TokenType::Variable { name, modifiers, .. } => {
+                assert_eq!(name, "var");
+                assert_eq!(modifiers[0].0, "mod");
+
+                for (token, literal) in modifiers[0].1.iter().zip(outputs.iter()) {
+                    match &token.token {
+                        TokenType::Literal { value } => { assert_eq!(literal, value) }
+                        _ => { unreachable!("must be literal") }
+                    }
+                }
+            }
+            _ => { unreachable!("must be variable") }
+        }
+    }
+
+    #[test]
+    fn literal_string() {
+        let input = r#"" this is a \"test\" string literal, \n this is a new line ""#;
+        let token = read_token_at(input, 0).unwrap();
+
+        match token.token {
+            TokenType::Literal { value } => {
+                match value {
+                    TokenLiteral::String(s) => { assert_eq!(s, " this is a \"test\" string literal, \n this is a new line ") }
+                    _ => { unreachable!("must be string")}
+                }
+            }
+            _ => { unreachable!("must be literal") }
+        }
+    }
+
+    #[test]
+    fn literal_number() {
+        let input = vec!["-1", "0", "9", "99.9009", "0000.99", "-9.13"];
+        let output = vec![-1f64, 0f64, 9f64, 99.9009, 0.99, -9.13];
+
+        for (input, output) in input.iter().zip(output.iter()) {
+            let token = read_token_at(input, 0).unwrap();
+
+            match token.token {
+                TokenType::Literal { value } => {
+                    match value {
+                        TokenLiteral::Number(n) => { assert_eq!(n, *output) }
+                        _ => { unreachable!("must be number")}
+                    }
+                }
+                _ => { unreachable!("must be literal") }
+            }
+        }
+    }
+
+    #[test]
+    fn literal_boolean() {
+
+        // check normal values
+        let input = vec!["true", "yEs", "tRuE", "false", "FAlse", "NO"];
+        let output = vec![true, true, true, false, false, false];
+
+        for (input, output) in input.iter().zip(output.iter()) {
+            let token = read_token_at(input, 0).unwrap();
+
+            match token.token {
+                TokenType::Literal { value } => {
+                    match value {
+                        TokenLiteral::Boolean(n) => { assert_eq!(n, *output) }
+                        _ => { unreachable!("must be boolean")}
+                    }
+                }
+                _ => { unreachable!("must be literal") }
+            }
+        }
+
+        // check that sub variables are allowed
+        let input = vec!["pusta.true", "my-var.yes", "active.no"];
+
+        for input in input {
+            let token = read_token_at(input, 0).unwrap();
+
+            match token.token {
+                TokenType::Variable {name, ..} => { assert_eq!(input, name) }
+                _ => { unreachable!("must be literal") }
+            }
+        }
+    }
+
+    #[test]
+    fn keyword() {
+        let input = vec!["!if", "!else", "!end", "!list", "!amogus"];
+        let output = vec!["if", "else", "end", "list", "amogus"];
+
+        for (input, output) in input.iter().zip(output.iter()) {
+            let token = read_token_at(input, 0).unwrap();
+
+            match token.token {
+                TokenType::Keyword { word } => { assert_eq!(word, *output) }
+                _ => { unreachable!("must be keyword") }
+            }
+        }
+    }
+
 }

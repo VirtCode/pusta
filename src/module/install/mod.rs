@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::Config;
 use crate::jobs::BuiltJob;
 use crate::module::install::build::{BuiltModule, ModuleEnvironment, ModuleInstructions};
-use crate::module::install::depend::{ModuleMotivation, Resolver};
+use crate::module::install::depend::{ModuleMotivation, Resolver, ResolvingAction};
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::output::logger::section;
@@ -27,69 +27,58 @@ mod build;
 pub mod depend;
 mod run;
 
-/// This struct stores a gathered change
-enum Gathered {
-    Install(ModuleQualifier),
-    Remove(ModuleQualifier),
-    Update(ModuleQualifier)
-}
-
 /// This struct helps gathering module changes
 #[derive(Default)]
 pub struct Gatherer {
-    gathered: Vec<Gathered>
+    resolver: Resolver
 }
 
 impl Gatherer {
 
-    pub fn install(&mut self, module: ModuleQualifier) {
-        self.gathered.push(Gathered::Install(module));
+    pub fn install(&mut self, module: ModuleQualifier, local: &Index<InstalledModule>, index: &Index<Module>) -> anyhow::Result<()>{
+        self.resolver.install(&module, local, index)
     }
 
-    pub fn update(&mut self, module: ModuleQualifier) {
-        self.gathered.push(Gathered::Update(module))
+    pub fn update(&mut self, module: ModuleQualifier, local: &Index<InstalledModule>, index: &Index<Module>) -> anyhow::Result<()>{
+        self.resolver.update(&module, local, index)
     }
 
-    pub fn reinstall(&mut self, module: ModuleQualifier) {
-        self.gathered.push(Gathered::Remove(module.clone()));
-        self.gathered.push(Gathered::Install(module));
+    pub fn reinstall(&mut self, module: ModuleQualifier, local: &Index<InstalledModule>, index: &Index<Module>) -> anyhow::Result<()>{
+        self.resolver.reinstall(&module, local, index)
     }
 
-    pub fn remove(&mut self, module: ModuleQualifier) {
-        self.gathered.push(Gathered::Remove(module));
+    pub fn remove(&mut self, module: ModuleQualifier, local: &Index<InstalledModule>, _index: &Index<Module>) -> anyhow::Result<()>{
+        self.resolver.remove(&module, local)
     }
 
-    fn gather(self: Self, index: &Index<Module>, local: &Index<InstalledModule>) -> anyhow::Result<Vec<Scheduled>> {
+
+    fn gather(self, index: &Index<Module>, local: &Index<InstalledModule>) -> anyhow::Result<Vec<Scheduled>> {
         let mut modules = vec![];
 
-        let mut resolver = Resolver::default();
-
-        for gathered in self.gathered {
-            match gathered {
-                Gathered::Install(module) => {
-                    let module = index.get(&module).context("module disappeared unexpectedly")?;
-
-                    modules.append(&mut resolver.resolve(module, local, index)?.into_iter().map(|(m, i)| {
-                        Scheduled::Install { module: m, motivation: i, }
-                    }).collect());
+        for (q, r, a) in self.resolver.collect()? {
+            match a {
+                ResolvingAction::Install => {
+                    let module = index.get(&q).context("module disappeared unexpectedly")?;
+                    modules.push(Scheduled::Install { module: module.clone(), motivation: r });
                 }
-                Gathered::Remove(module) => {
-                    let module = local.get(&module).context("installed module disappeared unexpectedly")?;
+                ResolvingAction::Reinstall => {
+                    let module = index.get(&q).context("module disappeared unexpectedly")?;
+                    let installed_module = local.get(&q).context("module disappeared unexpectedly")?;
 
-                    // TODO: Check dependencies and Free modules
-                    if resolver.can_remove(module.qualifier(), local) {
-                        modules.push(Scheduled::Remove { module: module.clone() })
-                    } else {
-                        return Err(anyhow!("this module is being depended upon"));
-                    }
+                    modules.push(Scheduled::Remove { module: installed_module.clone() });
+                    modules.push(Scheduled::Install { module: module.clone(), motivation: r });
                 }
-                Gathered::Update(module) => {
-                    let old = local.get(&module).context("installed module disappeared unexpectedly")?;
-                    let new = index.get(&module).context("module disappeared unexpectedly")?;
+                ResolvingAction::Update => {
+                    let module = index.get(&q).context("module disappeared unexpectedly")?;
+                    let installed_module = local.get(&q).context("module disappeared unexpectedly")?;
 
-                    // TODO: Check dependencies and free modules
-                    modules.push(Scheduled::Update { old: old.clone(), new: new.clone() })
+                    modules.push(Scheduled::Update { new: module.clone(), old: installed_module.clone() });
                 }
+                ResolvingAction::Remove => {
+                    let installed_module = local.get(&q).context("module disappeared unexpectedly")?;
+                    modules.push(Scheduled::Remove { module: installed_module.clone() })
+                }
+                _ => { unreachable!("no placeholders here") }
             }
         }
 

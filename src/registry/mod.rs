@@ -115,7 +115,11 @@ impl Registry {
         }
 
         let mut gatherer = Gatherer::default();
-        gatherer.install(module);
+
+        if let Err(e) = gatherer.install(module, &self.cache.index, &self.index) {
+            error!("{e}");
+            return;
+        }
 
         debug!("Starting modify");
         modify(gatherer, &self.index, &mut self.cache, &self.config);
@@ -136,7 +140,11 @@ impl Registry {
         };
 
         let mut gatherer = Gatherer::default();
-        gatherer.remove(module);
+
+        if let Err(e) = gatherer.remove(module, &self.cache.index, &self.index) {
+            error!("{e}");
+            return;
+        }
 
         debug!("Starting modify");
         modify(gatherer, &self.index, &mut self.cache, &self.config);
@@ -162,7 +170,10 @@ impl Registry {
 
         let mut gatherer = Gatherer::default();
         for q in updatable {
-            gatherer.update(q);
+            if let Err(e) = gatherer.update(q, &self.cache.index, &self.index) {
+                error!("{e}");
+                return;
+            }
         }
 
         debug!("Starting modify");
@@ -192,7 +203,10 @@ impl Registry {
         // TODO: Check if outdated first
 
         let mut gatherer = Gatherer::default();
-        gatherer.update(module);
+        if let Err(e) = gatherer.update(module, &self.cache.index, &self.index) {
+            error!("{e}");
+            return;
+        }
 
         debug!("Starting modify");
         modify(gatherer, &self.index, &mut self.cache, &self.config);

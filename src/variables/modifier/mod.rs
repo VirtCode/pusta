@@ -1,6 +1,11 @@
+mod boolean;
+mod string;
+
 use regex::Regex;
 use crate::variables::{Value, VariableError};
 use crate::variables::context::{Expression, ExpressionModifier};
+use crate::variables::modifier::boolean::{NOT_MODIFIER, AND_MODIFIER, OR_MODIFIER, IF_MODIFIER, NotModifier, AndModifier, OrModifier, IfModifier};
+use crate::variables::modifier::string::{LOWER_CASE_MODIFIER, UPPER_CASE_MODIFIER, CONTAINS_MODIFIER, UpperCaseModifier, LowerCaseModifier, ContainsModifier};
 use crate::variables::modifier::ModifierErrorType::{ParameterAmount, ParameterType, VariableType};
 
 /// This trait is a variable modifier
@@ -9,6 +14,7 @@ pub trait Modifier {
 }
 
 /// Represents a modifier error, which can be converted to a variable error
+#[derive(Debug)]
 pub struct ModifierError {
     error: ModifierErrorType,
     notes: Vec<ModifierErrorNote>
@@ -79,6 +85,7 @@ impl ModifierError {
 }
 
 /// Is the general error type for a modifier error
+#[derive(Debug)]
 enum ModifierErrorType {
     /// Invalid parameter amount supplied, expected amount is
     ParameterAmount(usize),
@@ -91,6 +98,7 @@ enum ModifierErrorType {
 }
 
 /// Adds additional detail to a modifier error
+#[derive(Debug)]
 enum ModifierErrorNote {
     /// Note about the variable itself
     Variable(String),
@@ -105,28 +113,19 @@ pub fn evaluate_modifier(modifier: &str, variable: Value, parameters: Vec<Value>
 pub fn get_modifier(name: &str) -> Option<Box<dyn Modifier>> {
     Some(match name {
         UPPER_CASE_MODIFIER => { Box::new(UpperCaseModifier) }
+        LOWER_CASE_MODIFIER => { Box::new(LowerCaseModifier) }
+        CONTAINS_MODIFIER => { Box::new(ContainsModifier) }
+
+        NOT_MODIFIER => { Box::new(NotModifier) }
+        AND_MODIFIER => { Box::new(AndModifier) }
+        OR_MODIFIER => { Box::new(OrModifier) }
+        IF_MODIFIER => { Box::new(IfModifier) }
+
         EQ_MODIFIER => { Box::new(EqModifier) }
+
         FORMAT_COLOR_MODIFIER => { Box::new(FormatColorModifier) }
         _ => { return None }
     })
-}
-
-/// This modifier converts a string to upper case
-struct UpperCaseModifier;
-const UPPER_CASE_MODIFIER: &str = "case-upper";
-impl Modifier for UpperCaseModifier {
-    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
-        // Expects no parameters
-        if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))); }
-
-        // Evaluate
-        match variable {
-            Value::String(s) => {
-                Ok(Value::String(s.to_uppercase()))
-            }
-            _ => { Err(ModifierError::simple(VariableType(Value::String("".into())))) }
-        }
-    }
 }
 
 /// This modifier compares the variable and a parameter

@@ -1,5 +1,6 @@
 mod boolean;
 mod string;
+mod number;
 
 use regex::Regex;
 use crate::variables::{Value, VariableError};
@@ -7,6 +8,7 @@ use crate::variables::context::{Expression, ExpressionModifier};
 use crate::variables::modifier::boolean::{NOT_MODIFIER, AND_MODIFIER, OR_MODIFIER, IF_MODIFIER, NotModifier, AndModifier, OrModifier, IfModifier};
 use crate::variables::modifier::string::{LOWER_CASE_MODIFIER, UPPER_CASE_MODIFIER, CONTAINS_MODIFIER, UpperCaseModifier, LowerCaseModifier, ContainsModifier};
 use crate::variables::modifier::ModifierErrorType::{ParameterAmount, ParameterType, VariableType};
+use crate::variables::modifier::number::{ADD_MODIFIER, SUBTRACT_MODIFIER, DIVISION_MODIFIER, MULTIPLY_MODIFIER, NEGATIVE_MODIFIER, AddModifier, SubtractModifier, MultiplyModifier, DivisionModifier, NegativeModifier};
 
 /// This trait is a variable modifier
 pub trait Modifier {
@@ -120,6 +122,12 @@ pub fn get_modifier(name: &str) -> Option<Box<dyn Modifier>> {
         AND_MODIFIER => { Box::new(AndModifier) }
         OR_MODIFIER => { Box::new(OrModifier) }
         IF_MODIFIER => { Box::new(IfModifier) }
+
+        ADD_MODIFIER => { Box::new(AddModifier) }
+        SUBTRACT_MODIFIER => { Box::new(SubtractModifier) }
+        MULTIPLY_MODIFIER => { Box::new(MultiplyModifier) }
+        DIVISION_MODIFIER => { Box::new(DivisionModifier) }
+        NEGATIVE_MODIFIER => { Box::new(NegativeModifier) }
 
         EQ_MODIFIER => { Box::new(EqModifier) }
 

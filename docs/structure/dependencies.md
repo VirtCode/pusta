@@ -3,7 +3,7 @@ Another way, in which pusta is very similar to a normal package manager, is its 
 
 With it, each module can have a list of dependencies, that get installed alongside that module when it is. This is very useful when you have a module that requires something else to run or install, that however is also used by many other modules and does really belong to that module. For example if many of your modules depend on a particular scripting language, they all may have a module as a dependency that installs and configures that scripting language.
 
-Note, that pusta is not at all strict in enforcing the dependency system. If a dependency is not found, the user can just choose to continue anyway. The same way, if a user wants to remove a dependency of a module, he can choose to do so anyway, although that module is being depended on. But as you can see, pusta will always prompt the user and won't allow these sometimes undesired operations to happen unwanted.
+Pusta's dependencies are **constructive**, meaning that it is made sure that dependencies for a given module are installed, but not automatically removed. In the most cases this is beneficial so that modules initially installed as dependencies don't get removed without any intent of the user.
 
 ## Resolving
 As with any dependency system, there are a few properties, which enable you to generalize your dependency relationships. Because of that, the dependency resolving is not solely based on [Qualifiers](module.md#qualifiers), but also on a special property `provides`. This property serves as an alternative alias for each module, special being that you can have many modules which have the same `provides` in one repository.

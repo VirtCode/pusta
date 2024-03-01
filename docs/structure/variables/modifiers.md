@@ -10,17 +10,17 @@ under [Available Modifiers](#available).
 ## Syntax
 
 The syntax of modifiers is pretty straight forward. When specifying a variable, one can append a modifier at the end of
-it. The arguments are specified inside of braces which can be omitted if there are none:
+it, separated by a colon (`:`). The arguments are specified inside of braces which can be omitted if there are none:
 
 ```
-is_laptop = %% pusta.hostname:contains("laptop-") %%
-display_name = %% pusta.hostname:case-upper %%
+%% pusta.hostname:contains("laptop-") %%
+%% pusta.hostname:case-upper %%
 ```
 
 Modifiers can be chained and take other variables with modifiers as parameters, to create some more interesting results:
 
 ```
-border_color = %% pusta.hostname:eq(hostnames.pc):and(pusta.username:lower-case:eq("feanor")) %%
+%% pusta.hostname:eq(hostnames.pc):and(pusta.username:lower-case:eq("feanor")) %%
 ```
 
 ## Available
@@ -64,6 +64,20 @@ A single format part starts with a `%`, formats one color component and consists
 
 These format parts can be put together to create a formatter pattern. Here are some examples:
 - `#%Xr%Xg%Xb` produces `#RRGGBB`
-- `rgba(%rD, %gD, %bD, %aF)` produces `rgba(RRR, GGG, BBB, A.AA)`
+- `rgba(%Dr, %Dg, %Db, %Fa)` produces `rgba(RRR, GGG, BBB, A.AA)`
 - `rgba(%Xr%Xg%Xb%Xa)` produces `rgba(RRGGBBAA)`
-- `opacity: %aF` produces `opacity: A.AA`
+- `opacity: %Fa` produces `opacity: A.AA`
+
+## Example
+Here are some real-world examples for how modifiers are used at their best:
+```ini
+# for hyprland's weird color format
+col.inactive_border = %% color.border.inactive:format-color("rgba(%Xr%Xg%Xb%Xa)") %%
+
+# using half of a value for some things
+gaps_out = %% look.layout.gaps %%
+gaps_in = %% look.layout.gaps:div(2) %% 
+
+# compare and insert as a one-liner
+layout = %% pusta.hostname:eq("desktop"):if("master", "dwindle") %%
+```

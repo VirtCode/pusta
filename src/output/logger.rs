@@ -1,5 +1,5 @@
 use colored::Colorize;
-use log::{Level, Log, Metadata, Record};
+use log::{info, Level, Log, Metadata, Record};
 use log::LevelFilter::Debug;
 
 static mut OUT: Output = Output {
@@ -20,11 +20,11 @@ impl Output {
     }
 
     fn print_error(&self, message: &str) {
-        println!("{}{} {message}", self.get_indent(), "err:".bright_red().bold());
+        println!("{}{}: {message}", self.get_indent(), "error".bright_red().bold());
     }
 
     fn print_warn(&self, message: &str) {
-        println!("{}{} {message}", self.get_indent(), "wrn:".bright_yellow().bold());
+        println!("{}{}: {message}", self.get_indent(), "warn".bright_yellow().bold());
     }
 
     fn print_info(&self, message: &str) {
@@ -87,6 +87,10 @@ pub fn disable_indent() {
     unsafe {
         OUT.set_indent(false);
     }
+}
+
+pub fn section(input: &str) {
+    info!("{} {input}", "::".bright_green())
 }
 
 pub fn is_verbose() -> bool {

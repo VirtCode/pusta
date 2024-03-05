@@ -1,16 +1,14 @@
 extern crate core;
 
-use std::{env};
-use std::io::{BufReader};
-use std::os::unix::io::{RawFd};
+use std::{env, fs};
 use std::path::PathBuf;
 use std::process::exit;
-use log::{debug, error, info, LevelFilter, warn};
+use log::{debug, error, info};
 use crate::command::{Command, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use clap::Parser;
-use crate::output::{end_section, logger, start_section};
-use crate::output::logger::{disable_indent, enable_indent};
+use crate::module::change::worker::run::handle_worker;
+use crate::output::logger;
 use crate::registry::Registry;
 
 mod command;
@@ -19,11 +17,19 @@ mod config;
 mod output;
 mod jobs;
 mod registry;
+mod variables;
 
 fn main() {
     let command: Command = Command::parse();
 
     logger::enable_logging(command.verbose);
+
+    debug!("Checking standalone commands...");
+
+    match command.topic {
+        SubCommand::Worker { socket, id } => { handle_worker(socket, id); return; }
+        _ => {}
+    }
 
     debug!("Loading configuration...");
 

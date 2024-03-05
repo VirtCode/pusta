@@ -35,13 +35,15 @@ system:
   package_manager: # subcategory for your package manager
 ```
 
-As you can see, some of these properties require commands, which have dynamic arguments in them. To specify where each argument goes, a special syntax is used, giving the argument name in caps surrounded by ampersands. This special string is replaced by the actual argument on runtime. Take the default for the `root_elevator` as an example: `sudo %COMMAND%`
+As you can see, some of these properties require commands, which have dynamic arguments in them. To specify where each argument goes, a special syntax is used, giving the argument name in caps surrounded by ampersands. This special string is replaced by the actual argument on runtime. Take the default for the `root_elevator` as an example: `doas %COMMAND%`
 
 - `default_directory` - The directory where shell commands are executed if not set otherwise. Relative paths provided in module definitions are subpaths of this directory, unless specified otherwise in the documentation. Since this can impact how certain modules are installed, it is **not recommended** to change this property. The default is the home directory (`$HOME`).
-- `root_elevator` - The tool that is used to acquire root privileges. This used to perform things on the system that require root privileges. Because everything pusta does is over the shell, this program will be used in the shell to acquire root privileges for just that single action. This command needs to contain the `%COMMAND%` argument. In most cases this will be `sudo %COMMAND%` (the default), or `doas %COMMAND%`.
+- `root_elevator` - The tool that is used to acquire root privileges. This used to perform things on the system that require root privileges. Because everything pusta does is over the shell, this program will be used in the shell to acquire root privileges for just that single action. This command needs to contain the `%COMMAND%` argument. In most cases this will be `sudo %COMMAND%`, or `doas %COMMAND%` (the default).
 - `file_previewer` - This tool is used to preview scripts before executing them, if so configured in the security settings. This command takes the `%FILE%` argument. The default is `less %FILE%`.
 - `package_manager` - This is an entire category for how to use the system package manager. The default for this category are dummy values, which will print an error if they are used.
 
+> **Why `doas`?**
+> You'll probably ask, why is `doas` the default, and not `sudo` which is what everyone uses? The problem is, that `sudo` alters the terminal settings in a way, that consequent outputs are not formatted as they should be, making the output hard to read. If you know how to fix this, let me know! In the meantime, I suggest using `doas`, or use `sudo` if you don't care whether the output is all over the place. It may not even be an issue if you don't use any jobs with the root requirement.
 
 ### Package Manager
 The `package_manager` category inside the `system` attribute holds information about which package manager is used. Pusta is very flexible about which package manager is used. Its only criteria is that it has a command for installing and removing and can take multiple packages, split by spaces between them, as arguments for these commands. However, it is recommended to use set this config to your system package manager, from which most of your software comes from.

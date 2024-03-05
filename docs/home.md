@@ -14,7 +14,6 @@ Have a look at the [Getting Started](getting-started.md) page, which will introd
 ## Other resources
 There also are some other resources besides this wiki which you can look at:
 - [Issue Tracker](../issues) - Have look at the issue tracker if you wonder about the state of a certain feature or encounter some bugs.
-- [Project Roadmap](../../../users/VirtCode/projects/2) - Look at the projects page for a more grand sense of which features are still to come.
 - Example (soon) - Look at the example dotfiles repository for an example of how to use Pusta on a bigger scale.
 
 ## Contributing

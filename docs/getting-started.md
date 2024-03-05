@@ -145,6 +145,7 @@ Here are a few topics which may now be relevant to you:
 - Have a look at the [package job](structure/jobs/package.md), which installs system packages.
 - Learn how to set the [script](structure/jobs/script.md#definition-and-properties) or [file](structure/jobs/file.md#definition-and-properties) job to operate with root privileges. 
 - Create relationships between modules in the form of [dependencies](structure/dependencies.md).
+- Unlock the potential of [variables](structure/variables.md) shared between your modules.
 
 And yes, before we forget it, you won't need the `welcome` configuration anymore. To remove it, just run:
 

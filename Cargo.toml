@@ -1,20 +1,23 @@
 [package]
 name = "pusta"
 description = "a dotfiles framework focussing on modularity"
-version = "0.2.0"
+version = "0.3.2"
 
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# normal binary which is used by the user
+[[bin]]
+name = "pusta"
+path = "src/main.rs"
 
 [dependencies]
-
 # Serialization and stuff
 serde = { version = "1.0.*", features = ["derive"] }
 serde_yaml = "0.9.*"
 serde_json = "1.0.*"
-serde_with = "3.0.*"
+serde_with = "3.3.0"
 typetag = "0.2.*"
+uuid = { version = "1.5.0", features = ["v4", "serde"]}
 
 # Using these because i am too lazy to implement them myself
 dyn-clone = "1.0.*"
@@ -32,3 +35,10 @@ colored = "2.0"
 # Filesystem
 shellexpand = "3.1.*"
 chksum = { version = "0.2.1", default-features = false, features = ["sha1"] }
+whoami = "1.4.1"
+fs_extra = "1.3.0"
+
+# Variables
+codespan-reporting = "0.11.1"
+regex = { version = "1.9.5", features = [] }
+lazy-regex = "3.0.2"

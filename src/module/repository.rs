@@ -7,12 +7,15 @@ use anyhow::{anyhow, Context, Error};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
+use crate::variables::Variable;
 
 pub const REPOSITORY_CONFIG: &str = "pusta.yml";
 
 #[derive(Deserialize)]
 pub struct RepositoryConfig {
-    pub alias: Option<String>
+    pub alias: Option<String>,
+
+    pub variables: Option<Variable>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -20,7 +23,6 @@ pub struct Repository {
 
     pub location: PathBuf,
     pub name: String,
-
 }
 
 impl Repository {
@@ -67,6 +69,14 @@ impl Repository {
         }
 
         Ok(modules)
+    }
+
+    /// Loads the variables from the repository config
+    pub fn load_variables(&self) -> Option<Variable>{
+        let path = self.location.join(REPOSITORY_CONFIG);
+
+        let config: RepositoryConfig = serde_yaml::from_reader(File::open(&path).ok()?).ok()?;
+        return config.variables;
     }
 }
 

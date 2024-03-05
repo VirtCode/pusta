@@ -57,6 +57,18 @@ depends: [string1 string2 string3 ...] # optional - dependencies of the module
 
 For more information about the dependency system, visit the [Dependencies page](dependencies.md).
 
+The next category would be the module-specific variables. These are provided like this:
+```yml
+# module.yml
+
+variables: # optional - module specific variables
+  ...
+```
+
+- `variables` (optional) - Specifies the module specific variables, which are provided in a normal YAML structure.
+
+See [Variables](variables.md#loading) for more information about how these variables can be used.
+
 The last category is simply the jobs array. Here the jobs are defined.
 ```yml
 # module.yml

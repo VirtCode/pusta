@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context};
 use log::{debug};
 use serde::{Deserialize, Serialize};
 use crate::registry::cache;
+use crate::variables;
 
 pub const DEFAULT_PARENT: &str = "~/.config";
 pub const DEFAULT_FILE: &str = "/pusta/config.yml";
@@ -24,6 +25,9 @@ pub fn config_file() -> String {
 pub struct Config {
     #[serde(default = "cache::default_cache_dir")]
     pub cache_dir: String,
+
+    #[serde(default = "variables::default_system_variables")]
+    pub system_variables: String,
 
     #[serde(default)]
     pub system: ConfigShell,
@@ -52,6 +56,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             cache_dir: cache::default_cache_dir(),
+            system_variables: variables::default_system_variables(),
             system: Default::default(),
             security: Default::default()
         }
@@ -72,14 +77,14 @@ pub struct ConfigShell {
 }
 
 impl ConfigShell {
-    /// The default value for the root elevator (sudo, because that is still the most popular, sorry doas)
+    /// The default value for the root elevator (please use doas, because sudo messes with the terminal in ways which make the cli unusable)
     pub fn root_elevator_default() -> String {
-        "sudo %COMMAND%".to_owned()
+        "doas".to_owned()
     }
 
     /// The default value for the file previewer (less, because it is a gnu coreutil and thus on (almost) every linux distro)
     pub fn file_previewer_default() -> String {
-        "less %FILE%".to_owned()
+        "less".to_owned()
     }
 }
 
@@ -109,6 +114,18 @@ impl Default for ConfigPackage {
             remove: "echo \"Package manager is not configured yet\"; exit 1".to_owned(),
             root: false
         }
+    }
+}
+
+impl ConfigPackage {
+    pub fn create_install(&self, packages: &Vec<String>) -> String {
+        let packages = packages.join(" ");
+        self.install.clone().replace("%PACKAGE%", &packages)
+    }
+
+    pub fn create_remove(&self, packages: &Vec<String>) -> String {
+        let packages = packages.join(" ");
+        self.remove.clone().replace("%PACKAGE%", &packages)
     }
 }
 

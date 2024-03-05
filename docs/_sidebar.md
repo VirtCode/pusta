@@ -9,7 +9,10 @@
 &nbsp;&nbsp;&nbsp;&nbsp;[Package Job](structure/jobs/package.md) <br>
 &nbsp;&nbsp;&nbsp;&nbsp;[Command Job](structure/jobs/command.md) <br>
 &nbsp;&nbsp;&nbsp;&nbsp;[Script Job](structure/jobs/script.md) <br>
-[Dependencies](structure/dependencies.md)
+[Dependencies](structure/dependencies.md) <br>
+[Variables](structure/variables.md) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;[Modifiers](structure/variables/modifiers.md) <br>
+&nbsp;&nbsp;&nbsp;&nbsp;[Control Flow](structure/variables/control.md)
 
 **Working with Pusta:**<br>
 [Workflow](working/workflow.md) <br>

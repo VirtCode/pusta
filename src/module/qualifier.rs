@@ -1,7 +1,8 @@
+use std::fmt::{Debug, Formatter, Write};
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Eq, Hash)]
 pub struct ModuleQualifier {
     repository: String,
     /// Name of the directory
@@ -69,5 +70,11 @@ impl ModuleQualifier {
 impl PartialEq for ModuleQualifier {
     fn eq(&self, other: &Self) -> bool {
         self.unique() == other.unique()
+    }
+}
+
+impl Debug for ModuleQualifier {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.unique())
     }
 }

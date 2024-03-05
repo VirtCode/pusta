@@ -13,7 +13,7 @@
 
   ---
   
-  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues) &ensp; • &ensp; [Roadmap](../../../../users/VirtCode/projects/2)
+  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues)
 
   ---
 </div>
@@ -32,16 +32,10 @@ When installing a module, pusta takes care of the entire installation and setup 
 - **Dependency System:** Similar to regular packages, modules can have dependencies too, insuring that required software from others modules is installed as needed.
 - **Easy Adaptability:** Installing and removing modules is extremely simple, this allows you to change your setup at any time and easily remove unneeded modules with just one command.
 - **Clear Format:** Every module is defined in the same manner, making it easy for you and others to expand, maintain and understand your configuration.
-
-## Note
-This project is still in early development. The feature set is far from complete and bugs are to be expected. Still, it should be stable enough to be used on a personal system.
-
-If you encounter any bugs or otherwise unexpected behaviour, please report them on the [issue tracker](../../issues). This helps a lot.
-
-This is only the beginning. A load of features are already planned and being implemented. Have a look at the [Projects page](../../../../users/VirtCode/projects/2) for a quick overview. If you have any ideas or feature requests, don't hesitate to post a feature request.
+- **Variable Templating:** Insert values of variables in all managed files to share common values between modules. Introduce advanced control flow based on them.
 
 ## Install
-Currently, the only way to compile pusta is to compile it from source yourself. To do that, make sure you have the rust toolchain and ```cargo``` installed and clone this repository. Head into the cloned directory and run 
+Currently, the only way to install pusta is to compile it from source yourself. To do that, make sure you have the rust toolchain and ```cargo``` installed and clone this repository. Head into the cloned directory and run 
 ```sh
 cargo install
 ```

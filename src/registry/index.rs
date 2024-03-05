@@ -1,7 +1,3 @@
-use std::fs;
-use anyhow::Error;
-use log::{debug, warn};
-use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;

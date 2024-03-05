@@ -1,8 +1,8 @@
-use std::path::{Path, PathBuf};
-use anyhow::Context;
-use log::{debug, info, warn};
-use crate::jobs::{Installable, InstallReader, InstallWriter, JobCacheReader, JobCacheWriter, JobEnvironment};
+use std::path::Path;
+use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobError, JobResult};
 use serde::{Deserialize, Serialize};
+use crate::jobs::helper::process_variables;
+use crate::module::change::RunChange;
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct CommandJob {
@@ -18,36 +18,40 @@ pub struct CommandJob {
 #[typetag::serde(name = "command")]
 impl Installable for CommandJob {
 
-    fn install(&self, env: &JobEnvironment, writer: &mut InstallWriter) -> anyhow::Result<()> {
+    fn build(&self, env: &JobEnvironment) -> JobResult<BuiltJob> {
+        let mut built = BuiltJob::new();
 
-        let mut running_directory = env.module_path.clone();
-        if let Some(path) = self.running_directory.as_ref() { running_directory.push(shellexpand::tilde(path).as_ref()); }
-
-        env.shell.run_command(&self.install, self.root.unwrap_or(false), self.show_output.unwrap_or(true), Some(&running_directory)).context("Failed to run custom command")?;
-
-        Ok(())
-    }
-
-    fn uninstall(&self, env: &JobEnvironment, reader: &InstallReader) -> anyhow::Result<()> {
-
-        if let Some(uninstall) = &self.uninstall {
-            let mut running_directory = env.module_path.clone();
-            if let Some(path) = self.running_directory.as_ref() { running_directory.push(shellexpand::tilde(path).as_ref()) }
-
-            env.shell.run_command(uninstall, self.root.unwrap_or(false), self.show_output.unwrap_or(true), Some(&running_directory)).context("Failed to run custom uninstall command")?;
+        // calculate running directory
+        let mut running_directory = env.path.clone();
+        if let Some(path) = self.running_directory.as_ref() {
+            running_directory.push(shellexpand::tilde(path).as_ref());
         }
 
-        Ok(())
+        // create commands
+        let install = process_variables(&self.install, Path::new("install-command"), env, &mut built)?;
+        let uninstall = if let Some(uninstall) = &self.uninstall {
+            Some(process_variables(uninstall, Path::new("uninstall-command"), env, &mut built)?)
+        } else { None };
+
+        // add change
+        built.change(Box::new(RunChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true))));
+
+        // set settings
+        built.root = self.root.unwrap_or_default();
+
+        Ok(built)
     }
 
-    fn update(&self, old: &dyn Installable, env: &JobEnvironment, writer: &mut InstallWriter, reader: &InstallReader) -> Option<anyhow::Result<()>> {
+    fn partial(&self, old: &dyn Installable, previous: &BuiltJob, env: &JobEnvironment) -> Option<Result<BuiltJob, JobError>> {
         let old = old.as_any().downcast_ref::<Self>()?;
 
-        if self.reinstall.unwrap_or_default() {
-            self.uninstall(env, reader).unwrap_or_else(|e| warn!("{e}"));
+        // force full reinstall if last job was set to do it
+        if old.reinstall.unwrap_or_default() {
+            return None;
         }
 
-        Some(self.install(env, writer))
+        // just build new job
+        Some(self.build(env))
     }
 
     fn construct_title(&self) -> String {

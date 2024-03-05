@@ -32,9 +32,12 @@ The repository config file currently only holds one property:
 # pusta.yml
 
 alias: [string] # optional - override the alias of the repository
+variables: # optional - repository specific variables 
+  ...
 ```
 
 - `alias` (optional) - Overrides the alias that is otherwise determined from the directory name. Using this property is strongly encourage, as it will avoid confusion and increase the portability of your repository.
+- `variables` (optional) - Repository specific variables structure, provided as a normal YAML structure. See [Variables](variables.md#loading) for more information.
 
 By the way, for more information about how the repository alias affects its modules, read the [Qualifiers](module.md#qualifiers) section on the Modules page.
 
@@ -44,9 +47,12 @@ Adding and removing repositories is also quite easy to pull off. Just run one of
 Have a look at the [Repositories](../working/workflow.md#repositories) section over on the Workflow page for more fine-grained instructions.
 
 ## Example
-This very sophisticated example specifies an alias for your repository:
+This very sophisticated example specifies an alias and a variable for your repository:
 ```yml
 # pusta.yml
 
 alias: virt
+
+variables:
+  color: red
 ```

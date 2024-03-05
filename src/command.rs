@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use uuid::Uuid;
 
 #[derive(Parser)]
 #[clap(version, about)]
@@ -14,11 +15,6 @@ pub struct Command {
 
 #[derive(Subcommand)]
 pub enum SubCommand {
-    /// Loads main repository and uses the provided config
-    Load {
-        folder: Option<String>
-    },
-
     /// Installs a module
     Install {
         /// Qualifier of module
@@ -50,6 +46,15 @@ pub enum SubCommand {
     Update {
         /// Only update this module
         module: Option<String>
+    },
+
+    /// Internal worker spawn command
+    #[command(hide = true)]
+    Worker {
+        #[arg()]
+        socket: Uuid,
+        #[arg()]
+        id: Uuid
     }
 
 }

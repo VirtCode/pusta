@@ -13,7 +13,7 @@
 
   ---
   
-  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues) &ensp; • &ensp; [Roadmap](../../../../users/VirtCode/projects/2)
+  [Installation](#install) &ensp; • &ensp; [Documentation](../../wiki) &ensp; • &ensp; Example (soon™)  &ensp; • &ensp; [Issues](../../issues)
 
   ---
 </div>

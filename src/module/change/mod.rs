@@ -2,7 +2,8 @@ mod shell;
 pub mod worker;
 
 use std::{env, fs, io};
-use std::os::unix::fs::symlink;
+use std::fs::Permissions;
+use std::os::unix::fs::{PermissionsExt, symlink};
 use std::os::unix::raw::time_t;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -266,13 +267,21 @@ impl AtomicChange for ClearChange {
 pub struct WriteChange {
     /// Text to insert into a file
     text: String,
+    /// Permission mode on the created file
+    #[serde(default = "WriteChange::permissions_default")]
+    permissions: u32,
     /// File to insert text into
     file: PathBuf,
 }
 
 impl WriteChange {
-    pub fn new(text: String, file: PathBuf) -> Self {
-        Self { text, file }
+    pub fn new(text: String, permissions: u32, file: PathBuf) -> Self {
+        Self { text, permissions, file }
+    }
+    
+    pub fn permissions_default() -> u32 {
+        // for backwards compatibility
+        0o0644
     }
 }
 
@@ -281,7 +290,11 @@ impl AtomicChange for WriteChange {
     fn apply(&self, runtime: &ChangeRuntime) -> Result<(), ChangeError> {
         // Write the file
         fs_extra::file::write_all(&self.file, &self.text)
-            .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to write to file".into(), e.to_string()))
+            .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to write to file".into(), e.to_string()))?;
+        
+        // Set permissions
+        fs::set_permissions(&self.file, Permissions::from_mode(self.permissions))
+            .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to change permissions of created file".into(), e.to_string()))
     }
 
     fn revert(&self, runtime: &ChangeRuntime) -> Result<(), ChangeError> {

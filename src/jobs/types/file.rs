@@ -8,6 +8,7 @@ use crate::module::change::{ClearChange, CopyChange, LinkChange, WriteChange};
 pub struct FileJob {
     file: String,
     location: String,
+    permissions: Option<u32>,
 
     root: Option<bool>,
     link: Option<bool>
@@ -27,7 +28,7 @@ impl FileJob {
                 let resource = resource_load(&source, env, built)?;
                 let resource = process_variables(&resource, &source, env, built)?;
 
-                built.change(Box::new(WriteChange::new(resource, target)));
+                built.change(Box::new(WriteChange::new(resource, self.permissions.unwrap_or(0o0644), target)));
             },
             (false, true) => {
                 let path = resource_mark(&source, env, built)?;

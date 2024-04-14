@@ -14,12 +14,15 @@ The definition is akin to the definition of every other job type. The file job u
     file: [path] # the file to copy
     location: [path] # the target location of the file
     
+    permissions: [number] # optional - the mode number for the permissions of the file
+    
     root: [boolean] # optional - perform the copying as root
     link: [boolean] # optional - symlink instead of copy
 ```
 
 - `file` - File name of the file inside the module directory to copy.
 - `location` - Target location to copy the file to. This has to be a path to a file and not the parent directory. `~` is supported for specifying the home directory.
+- `permissions` (optional) - Set the permission of the written file. This only works when not linking and it not being a directory. Expects a valid permission number like `0o644` (the default).
 - `root` (optional) - Perform the copying and everything as root. This has to be used if copying to somewhere you need root privileges, because you **never run pusta as root**.
 - `link` (optional) - Whether to link the file to the target location instead of copying it. Linked files will not support dynamic content like variables.
 
@@ -30,7 +33,7 @@ For easier troubleshooting or better understanding of the file job, here are a f
 - When updating, the job will detect changes on the source file and initiate an update. Changing the definition is not necessary.
 
 ## Example
-In this example, a file is copied to a directory only accessible with root.
+In this example, a file is copied to a directory only accessible with root, but everyone can write to it.
 ```yml
 # module.yml > jobs
 
@@ -39,5 +42,6 @@ In this example, a file is copied to a directory only accessible with root.
     type: file
     file: config.toml
     location: /etc/greetd/config.toml
+    permissions: 0o666
     root: true
 ```

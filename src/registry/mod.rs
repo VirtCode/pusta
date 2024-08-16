@@ -167,6 +167,11 @@ impl Registry {
 
             None
         }).collect();
+        
+        if updatable.is_empty() {
+            section("Everything is already up to date!");
+            return;
+        }
 
         let mut gatherer = Gatherer::default();
         for q in updatable {

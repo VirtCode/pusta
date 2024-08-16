@@ -18,6 +18,11 @@
   ---
 </div>
 
+> [!WARNING]  
+> Do not use this for your system! This was a great playground to get to know the rust language and ecosystem, but as a result this project is filled with buggy and dubious code. So I do not intend on maintaining this project properly in the future. I am however still continuing to use it on all my systems, so a fix or two may still be pushed in the future.
+ 
+  ---
+
 ## Concept
 Pusta is not your ordinary dotfiles manager - it is rather a comprehensive dotfiles framework. It is designed to streamline the creation, management and installation of your system configuration.
 

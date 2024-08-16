@@ -14,11 +14,11 @@ use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 use anyhow::{anyhow, Context};
 use lazy_regex::{Lazy, lazy_regex};
-use log::{debug, error};
+use log::{debug, error, warn};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::module::change::{AtomicChange, ChangeResult, ChangeRuntime};
+use crate::module::change::{AtomicChange, ChangeResult, ChangeRuntime, RunChange};
 use crate::module::change::worker::WorkerResponse::Login;
 
 const WORKER_SUBCOMMAND: &str = "worker";
@@ -69,7 +69,7 @@ impl WorkerPortal {
     }
 
     /// Spawns a worker that will connect to the portal
-    pub fn summon(&mut self, root: bool, elevator: &str) -> anyhow::Result<()> {
+    pub fn summon(&mut self, root: bool, elevator: &str, clean: bool) -> anyhow::Result<()> {
         let exe = env::current_exe()
             .context("failed to retrieve executable of myself")?;
 
@@ -115,6 +115,16 @@ impl WorkerPortal {
             if id != worker_id { return Err(anyhow!("worker logged in with unexpected id")); }
         } else {
             return Err(anyhow!("worker did not log in properly"));
+        }
+
+        if root && clean {
+            debug!("resetting terminal settings");
+
+            if let Err(e) = Command::new("stty").arg("sane").spawn().and_then(|mut c| c.wait()) {
+                warn!("failed to clean terminal: {e:#}");
+            } else {
+                debug!("successfully cleaned terminal settings");
+            }
         }
 
         debug!("worker logged in successfully");

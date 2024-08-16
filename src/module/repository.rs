@@ -62,7 +62,7 @@ impl Repository {
                     modules.push(m);
                 }
                 Err(e) => {
-                    warn!("Failed to load {}/'{}': {e}", self.name, entry.file_name().map(OsStr::to_string_lossy).unwrap_or(Cow::Borrowed("unknown module")));
+                    warn!("Failed to load {}/'{}': {e:#}", self.name, entry.file_name().map(OsStr::to_string_lossy).unwrap_or(Cow::Borrowed("unknown module")));
                 }
                 _ => {}
             }

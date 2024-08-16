@@ -71,20 +71,27 @@ pub struct ConfigShell {
     pub root_elevator: String,
     #[serde(default="ConfigShell::file_previewer_default")]
     pub file_previewer: String,
+    #[serde(default="ConfigShell::clean_terminal_default")]
+    pub clean_terminal: bool,
     #[serde(default)]
     pub package_manager: ConfigPackage,
     pub default_directory: Option<String>
 }
 
 impl ConfigShell {
-    /// The default value for the root elevator (please use doas, because sudo messes with the terminal in ways which make the cli unusable)
+    /// The default value for the root elevator
     pub fn root_elevator_default() -> String {
-        "doas".to_owned()
+        "sudo".to_owned()
     }
 
     /// The default value for the file previewer (less, because it is a gnu coreutil and thus on (almost) every linux distro)
     pub fn file_previewer_default() -> String {
         "less".to_owned()
+    }
+    
+    /// The default terminal cleaning setting, is true as we use sudo
+    pub fn clean_terminal_default() -> bool {
+        true
     }
 }
 
@@ -94,6 +101,7 @@ impl Default for ConfigShell {
             root_elevator: ConfigShell::root_elevator_default(),
             file_previewer: ConfigShell::file_previewer_default(),
             package_manager: Default::default(),
+            clean_terminal: ConfigShell::clean_terminal_default(),
             default_directory: None
         }
     }

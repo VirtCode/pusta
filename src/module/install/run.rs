@@ -15,7 +15,7 @@ pub(super) fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotiv
     let mut workers = WorkerPortal::open()?;
 
     debug!("Spawning non-root worker");
-    workers.summon(false, &config.system.root_elevator)?;
+    workers.summon(false, &config.system.root_elevator, config.system.clean_terminal)?;
 
     // check if any root jobs are present
     if instructions.iter()
@@ -31,7 +31,7 @@ pub(super) fn run(instructions: &Vec<(&ModuleInstructions, &Module, &ModuleMotiv
         }) {
 
         debug!("Spawning root worker");
-        workers.summon(true, &config.system.root_elevator)?;
+        workers.summon(true, &config.system.root_elevator, config.system.clean_terminal)?;
     }
 
     let mut results = vec![None; instructions.len()];

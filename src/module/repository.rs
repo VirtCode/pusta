@@ -30,7 +30,9 @@ impl Repository {
 
         // Read config
         let path = folder.join(REPOSITORY_CONFIG);
-        let config: RepositoryConfig = serde_yaml::from_reader(File::open(&path).with_context(|| format!("Failed to open repository config file at {}", path.to_string_lossy()))?).with_context(|| format!("Failed to parse repository config file at {}", path.to_string_lossy()))?;
+        let config: RepositoryConfig = serde_yaml::from_reader(
+            File::open(&path).with_context(|| format!("Failed to open repository config file at {}", path.to_string_lossy()))?
+        ).map_err(|e| anyhow!("failed to parse repository config file at {}: {e:#}", path.to_string_lossy()))?;
 
         let name = alias.map(|s| s.to_owned())
             .or(config.alias)
@@ -72,11 +74,14 @@ impl Repository {
     }
 
     /// Loads the variables from the repository config
-    pub fn load_variables(&self) -> Option<Variable>{
+    pub fn load_variables(&self) -> anyhow::Result<Option<Variable>> {
         let path = self.location.join(REPOSITORY_CONFIG);
 
-        let config: RepositoryConfig = serde_yaml::from_reader(File::open(&path).ok()?).ok()?;
-        return config.variables;
+        let config: RepositoryConfig = serde_yaml::from_reader(
+            File::open(&path).with_context(|| format!("failed to open repository config file for {}", &self.name))?
+        ).map_err(|e| anyhow!("failed to parse repository config file for {}: {e:#}", &self.name))?;
+        
+        Ok(config.variables)
     }
 }
 

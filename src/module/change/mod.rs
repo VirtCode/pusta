@@ -278,7 +278,7 @@ impl WriteChange {
     pub fn new(text: String, permissions: u32, file: PathBuf) -> Self {
         Self { text, permissions, file }
     }
-    
+
     pub fn permissions_default() -> u32 {
         // for backwards compatibility
         0o0644
@@ -291,7 +291,7 @@ impl AtomicChange for WriteChange {
         // Write the file
         fs_extra::file::write_all(&self.file, &self.text)
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to write to file".into(), e.to_string()))?;
-        
+
         // Set permissions
         fs::set_permissions(&self.file, Permissions::from_mode(self.permissions))
             .map_err(|e| ChangeError::filesystem(self.file.clone(), "failed to change permissions of created file".into(), e.to_string()))
@@ -535,7 +535,8 @@ impl AtomicChange for ScriptChange {
 /// Copies either a file or directory
 fn copy(from: &Path, to: &Path) -> fs_extra::error::Result<u64>{
     if from.is_dir() {
-        fs_extra::dir::copy(from, to, &CopyOptions::default().overwrite(true))
+        let copy_options = CopyOptions::new().overwrite(true).copy_inside(true);
+        fs_extra::dir::copy(from, to, &copy_options)
     } else {
         fs_extra::file::copy(from, to, &fs_extra::file::CopyOptions::default().overwrite(true))
     }

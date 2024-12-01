@@ -50,9 +50,8 @@ impl Installable for PackageJob {
         // remove removed modules
         if (!remove.is_empty()) {
             built.change(Box::new(RunChange::new(
-                env.package_config.create_install(&remove),
+                env.package_config.create_remove(&remove),
                 None, env.path.clone(), true)));
-
         }
 
         // install new modules

@@ -13,6 +13,7 @@ use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
 use crate::output::{logger, prompt_choice_module, prompt_yn};
 use crate::output::logger::{disable_indent, enable_indent, section};
+use crate::output::table::{table, Column};
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
 use crate::variables::{generate_magic, load_system, Variable};
@@ -219,24 +220,28 @@ impl Registry {
 
     /// Lists modules and repositories
     pub fn list(&self) {
-        info!("Added source repositories:");
-        enable_indent();
+        info!("{}", "Added source repositories:".underline().bold());
 
         if self.cache.repositories.is_empty() {
             info!("{}", "No sources are currently added".italic().dimmed())
         } else {
-            for repo in &self.cache.repositories {
-                info!("{} ({})",
+            let columns = [
+                Column::new("Alias").force(),
+                Column::new("Location").ellipse(),
+            ];
+            
+            let rows = self.cache.repositories.iter().map(|repo| {
+                [
                     repo.name.bold(),
-                    repo.location.to_string_lossy())
-            }
+                    repo.location.to_string_lossy().normal()
+                ]
+            }).collect();
+            
+            table(columns, rows, "  ");
         }
-
-        disable_indent();
         println!();
 
-        info!("Installed modules:");
-        enable_indent();
+        info!("{}", "Installed modules:".underline().bold());
 
         if self.cache.index.modules.is_empty() {
             info!("{}", "No modules are currently installed".italic().dimmed())
@@ -244,29 +249,43 @@ impl Registry {
             let magic = generate_magic();
             let system = load_system(&self.config).unwrap_or(Variable::base());
 
-            for module in &self.cache.index.modules {
-                let naive: DateTime<Local> = module.built.time.into();
-
+            let mut sorted = self.cache.index.modules.iter().collect::<Vec<_>>();
+            sorted.sort_by(|a, b| {
+                a.module.qualifier.unique().cmp(&b.module.qualifier.unique())
+            });
+            
+            let columns = [
+                Column::new("Name").ellipse(),
+                Column::new("Qualifier").force(),
+                Column::new("Version"),
+                Column::new("Status").force(),
+                Column::new("Added").force()
+            ];
+            
+            let rows = sorted.iter().map(|module| {
                 let info = if let Some(indexed) = self.index.get(&module.module.qualifier) {
-                    if !module.up_to_date(&indexed, &magic, &system, &self.cache) {
-                        format!("-{}", "outdated".yellow())
+                    if !module.up_to_date(indexed, &magic, &system, &self.cache) {
+                        "outdated".yellow()
                     } else {
-                        String::default()
+                        "up-to-date".green()
                     }
                 } else {
-                    format!("-{}", "orphaned".red())
+                    "orphaned".red()
                 };
 
-                info!("{} ({}-{}{}) {} {}",
+                let naive: DateTime<Local> = module.built.time.into();
+                
+                [
                     module.module.name.bold(),
-                    module.module.qualifier.unique(),
+                    module.module.qualifier.unique().normal(),
                     module.module.version.dimmed(),
                     info,
-                    "on".italic(),
-                    naive.format("%x").to_string().italic());
-            }
+                    naive.format("%x").to_string().italic()   
+                ]
+            }).collect();
+            
+            table(columns, rows, "  ");
         }
-        disable_indent();
         println!();
     }
 

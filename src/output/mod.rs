@@ -1,4 +1,5 @@
 pub mod logger;
+pub mod table;
 
 use std::io::{stdin, stdout, Write};
 use std::str::FromStr;

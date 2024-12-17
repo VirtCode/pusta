@@ -26,11 +26,13 @@ pub mod install;
 const MODULE_CONFIG: &str = "module.yml";
 
 #[derive(Deserialize, JsonSchema)]
-#[schemars(title = "Module")]
+#[schemars(title = "Module", deny_unknown_fields)]
 pub struct ModuleConfig {
     name: String,
     description: String,
     author: Option<String>,
+    // support numeric types as a version is very likely to be recognized as number by the lsp
+    #[schemars(extend("type" = [ "string", "number" ]))]
     version: String,
 
     alias: Option<String>,

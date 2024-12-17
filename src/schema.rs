@@ -33,6 +33,8 @@ pub fn write_schemas(directory: &String) {
 
     info!("{}", "Schemas:".underline().bold());
 
+    // we use draft 7 as most json/yaml language servers do not support features newer
+    // than draft 7
     let mut generator = SchemaSettings::draft07().into_generator();
 
     match write_schema::<Config>(&mut generator, &path, "config.json") {

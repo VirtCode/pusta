@@ -13,7 +13,7 @@ use crate::variables::Variable;
 pub const REPOSITORY_CONFIG: &str = "pusta.yml";
 
 #[derive(Deserialize, JsonSchema)]
-#[schemars(title = "Repository")]
+#[schemars(title = "Repository", deny_unknown_fields)]
 pub struct RepositoryConfig {
     pub alias: Option<String>,
 

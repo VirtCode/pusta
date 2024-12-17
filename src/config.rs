@@ -28,6 +28,7 @@ pub fn config_file() -> String {
 
 /// This struct contains the main config with default values
 #[derive(Deserialize, Clone, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Config {
     #[serde(default = "cache::default_cache_dir")]
     pub cache_dir: String,

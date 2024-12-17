@@ -7,6 +7,7 @@ use chksum::chksum;
 use chksum::hash::SHA1;
 use colored::Colorize;
 use log::{debug, error, info, warn};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::Job;
 use crate::module::qualifier::ModuleQualifier;
@@ -24,11 +25,14 @@ pub mod install;
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
+#[schemars(title = "Module", deny_unknown_fields)]
 pub struct ModuleConfig {
     name: String,
     description: String,
     author: Option<String>,
+    // support numeric types as a version is very likely to be recognized as number by the lsp
+    #[schemars(extend("type" = [ "string", "number" ]))]
     version: String,
 
     alias: Option<String>,
@@ -82,7 +86,7 @@ impl Module {
         // Calculate current checksum
         let dir = fs::read_dir(directory).context("Failed to read dir for checksum")?;
         let checksum = chksum::<SHA1, _>(dir).context("Failed to calculate checksum")?.to_hex_lowercase();
-        
+
         let qualifier = ModuleQualifier::new(parent.name.clone(), directory, config.alias, config.provides);
         if !qualifier.legal() {
             return Err(anyhow!("Module qualifier contains illegal characters"));

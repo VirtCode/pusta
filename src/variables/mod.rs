@@ -14,13 +14,14 @@ use codespan_reporting::files::SimpleFiles;
 use codespan_reporting::term;
 use codespan_reporting::term::termcolor::{ColorChoice, StandardStream};
 use log::{debug, error};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
 
 pub const LEVEL_SEPARATOR: char = '.';
 
 /// Represents a basic variable value, split into three basic types
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Value {
     String(String),
@@ -50,7 +51,7 @@ impl ToString for Value {
 }
 
 /// Represents a variable, may either be a value, a list oder a group
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Variable {
     Group(HashMap<String, Variable>),

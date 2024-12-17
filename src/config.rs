@@ -2,26 +2,33 @@ use std::{env};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context};
-use log::{debug};
+use log::debug;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::registry::cache;
 use crate::variables;
 
 pub const DEFAULT_PARENT: &str = "~/.config";
-pub const DEFAULT_FILE: &str = "/pusta/config.yml";
+pub const DEFAULT_FILE: &str = "/config.yml";
 
-/// Finds the current config directory (XDG_CONFIG_HOME)
-pub fn config_file() -> String {
+/// Finds the current config directory XDG_CONFIG_HOME/pusta
+pub fn config_dir() -> String {
     let parent = match env::var("XDG_CONFIG_HOME") {
         Ok(s) => { s }
         Err(_) => { DEFAULT_PARENT.to_owned() }
     };
 
-    parent + DEFAULT_FILE
+    parent + "/pusta"
+}
+
+/// Finds the current config file ([`config_dir`][`DEFAULT_FILE`])
+pub fn config_file() -> String {
+    config_dir() + DEFAULT_FILE
 }
 
 /// This struct contains the main config with default values
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct Config {
     #[serde(default = "cache::default_cache_dir")]
     pub cache_dir: String,
@@ -65,7 +72,8 @@ impl Default for Config {
 
 
 /// This struct contains configuration about the current system and shell
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, JsonSchema)]
+#[schemars(title = "System")]
 pub struct ConfigShell {
     #[serde(default="ConfigShell::root_elevator_default")]
     pub root_elevator: String,
@@ -88,7 +96,7 @@ impl ConfigShell {
     pub fn file_previewer_default() -> String {
         "less".to_owned()
     }
-    
+
     /// The default terminal cleaning setting, is true as we use sudo
     pub fn clean_terminal_default() -> bool {
         true
@@ -108,7 +116,7 @@ impl Default for ConfigShell {
 }
 
 /// This struct contains configuration about the package manager, having dummy defaults
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, JsonSchema)]
 pub struct ConfigPackage {
     pub root: bool,
     pub install: String,
@@ -138,7 +146,7 @@ impl ConfigPackage {
 }
 
 /// This enum represents a strategy used to confirm changes to the system
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, JsonSchema)]
 pub enum ConfirmStrategy {
     #[serde(rename="false", alias="false", alias="no", alias="No", alias="False")]
     No,
@@ -155,7 +163,7 @@ impl Default for ConfirmStrategy {
 }
 
 /// This enum represents a strategy to determine when to preview a script to execute
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, JsonSchema)]
 pub enum PreviewStrategy {
     #[serde(rename="always", alias="always", alias="Always")]
     Always,
@@ -176,7 +184,8 @@ impl Default for PreviewStrategy {
 }
 
 /// This struct contains guidelines about which actions on the system should be confirmed
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, JsonSchema)]
+#[schemars(title = "Security")]
 pub struct ConfigSecurity {
     #[serde(default)]
     pub extra_confirm_everything: bool,

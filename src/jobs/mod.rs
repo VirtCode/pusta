@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use chksum::chksum;
 use chksum::hash::SHA1;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::config::ConfigPackage;
 use crate::jobs::types::Installable;
@@ -70,12 +71,13 @@ pub enum JobError {
 }
 
 /// This struct represents a job which can be specified to be installed for a module
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema)]
 pub struct Job {
     /// Title of the job, if none, one will be generated
     title: Option<String>,
 
     /// The actual function of the job
+    #[schemars(with = "types::JobTypes")]
     job: Box<dyn Installable>
 }
 

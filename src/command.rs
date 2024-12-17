@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use uuid::Uuid;
 
+use crate::schema::schema_dir;
+
 #[derive(Parser)]
 #[clap(version, about)]
 #[command(disable_help_subcommand = true)]
@@ -9,7 +11,7 @@ pub struct Command {
     pub topic: SubCommand,
 
     // Enables verbose logging
-    #[clap(short, long)]
+    #[clap(short, long, global = true)]
     pub verbose: bool
 }
 
@@ -55,8 +57,14 @@ pub enum SubCommand {
         socket: Uuid,
         #[arg()]
         id: Uuid
-    }
+    },
 
+    /// Generate json schema files in the specified directory
+    #[command(hide = true)]
+    Schema {
+        #[arg(short, long, default_value_t = schema_dir())]
+        directory: String
+    }
 }
 
 #[derive(Subcommand)]

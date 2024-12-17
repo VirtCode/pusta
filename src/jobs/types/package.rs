@@ -2,12 +2,13 @@ use std::ops::Deref;
 use anyhow::Error;
 use dyn_eq::DynEq;
 use log::{info, warn};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::module::change::RunChange;
 
 /// This job installs a package from the system
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
 pub struct PackageJob {
     names: String
 }

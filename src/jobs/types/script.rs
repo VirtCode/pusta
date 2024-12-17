@@ -1,10 +1,11 @@
 use std::path::Path;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::jobs::helper::{process_variables, resource_load};
 use crate::module::change::ScriptChange;
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
 pub struct ScriptJob {
     install: String,
     uninstall: Option<String>,

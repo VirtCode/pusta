@@ -12,11 +12,12 @@
 [Dependencies](structure/dependencies.md) <br>
 [Variables](structure/variables.md) <br>
 &nbsp;&nbsp;&nbsp;&nbsp;[Modifiers](structure/variables/modifiers.md) <br>
-&nbsp;&nbsp;&nbsp;&nbsp;[Control Flow](structure/variables/control.md)
+&nbsp;&nbsp;&nbsp;&nbsp;[Control Flow](structure/variables/control.md) <br>
 
 **Working with Pusta:**<br>
 [Workflow](working/workflow.md) <br>
 [Other Commands](working/other.md)
+[Schemas](structure/schemas.md)
 
 **Customizing Pusta:**<br>
 [Configuration](custom/config.md)

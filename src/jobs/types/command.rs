@@ -1,10 +1,11 @@
 use std::path::Path;
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobError, JobResult};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::helper::process_variables;
 use crate::module::change::RunChange;
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
 pub struct CommandJob {
     install: String,
     uninstall: Option<String>,

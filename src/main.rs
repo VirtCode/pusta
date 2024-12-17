@@ -5,6 +5,9 @@ use std::{env, fs};
 use std::path::PathBuf;
 use std::process::exit;
 use log::{debug, error, info};
+use module::ModuleConfig;
+use schemars::generate::SchemaSettings;
+use schemars::schema_for;
 use crate::command::{Command, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use clap::Parser;
@@ -19,6 +22,7 @@ mod output;
 mod jobs;
 mod registry;
 mod variables;
+mod schema;
 
 fn main() {
     let command: Command = Command::parse();
@@ -88,6 +92,9 @@ fn main() {
                 None => { registry.update_everything() }
                 Some(module) => { registry.update_module(&module) }
             }
+        },
+        SubCommand::Schema { directory } => {
+            schema::write_schemas(&directory);
         }
         _ => {}
     }

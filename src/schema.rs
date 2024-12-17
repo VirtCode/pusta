@@ -31,22 +31,20 @@ pub fn write_schemas(directory: &String) {
     let mut rows: Vec<[ColoredString; 2]> = vec![];
     let mut errors = vec![];
 
-    let path_str = path.to_str().unwrap_or_default();
-
     info!("{}", "Schemas:".underline().bold());
 
     let mut generator = SchemaSettings::draft07().into_generator();
 
     match write_schema::<Config>(&mut generator, &path, "config.json") {
-        Ok(_) => rows.push([ "Schema for pusta configuration".into(), format!("{path_str}/config.json").dimmed() ]),
+        Ok(_) => rows.push([ "Schema for pusta configuration".into(), format!("{directory}/config.json").dimmed() ]),
         Err(err) => errors.push(format!("Failed to write config schema: {err}")),
     }
     match write_schema::<ModuleConfig>(&mut generator, &path,"module.json") {
-        Ok(_) => rows.push([ "Schema for module configurations".into(), format!("{path_str}/module.json").dimmed() ]),
+        Ok(_) => rows.push([ "Schema for module configurations".into(), format!("{directory}/module.json").dimmed() ]),
         Err(err) => errors.push(format!("Failed to write module schema: {err}")),
     }
     match write_schema::<RepositoryConfig>(&mut generator, &path,"repository.json") {
-        Ok(_) => rows.push([ "Schema for repository configurations".into(), format!("{path_str}/repository.json").dimmed() ]),
+        Ok(_) => rows.push([ "Schema for repository configurations".into(), format!("{directory}/repository.json").dimmed() ]),
         Err(err) => errors.push(format!("Failed to write repository schema: {err}")),
     }
 
@@ -63,14 +61,14 @@ pub fn write_schemas(directory: &String) {
 
 /// Create and ensure the integrity of the schema directory
 fn create_schema_dir(directory: &String) -> Result<PathBuf, String> {
-    let dir_path = Path::new(&directory);
+    let dir_path = PathBuf::from(shellexpand::tilde(&directory).to_string());
     if dir_path.exists() && !dir_path.is_dir() {
         return Err(format!("{directory} exists and is not a directory"))
     } else if !dir_path.exists() {
-        std::fs::create_dir_all(dir_path).map_err(|err| format!("Failed to create directory {directory}: {err}"))?
+        std::fs::create_dir_all(&dir_path).map_err(|err| format!("Failed to create directory {directory}: {err}"))?
     }
 
-    Ok(dir_path.to_path_buf())
+    Ok(dir_path)
 }
 
 fn write_schema<T: JsonSchema>(generator: &mut SchemaGenerator, path: &PathBuf, name: &str) -> Result<(), String> {

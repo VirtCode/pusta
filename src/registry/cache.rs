@@ -150,7 +150,7 @@ impl Cache {
         if result.is_some() {
             self.write_repositories()?;
         }
-        
+
         Ok(result)
     }
 

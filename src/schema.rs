@@ -7,7 +7,7 @@ use schemars::{generate::SchemaSettings, JsonSchema, SchemaGenerator};
 use crate::{config::Config, module::{repository::RepositoryConfig, ModuleConfig}, output::table::{table, Column}};
 
 pub const DEFAULT_PARENT: &str = "~/.local/share";
-pub const DEFAULT_DIR: &str = "/schemas";
+pub const DEFAULT_DIR: &str = "/pusta/schemas";
 
 /// Finds the current schema directory ([`crate::registry::cache::default_cache_dir`][`DEFAULT_DIR`])
 pub fn schema_dir() -> String {

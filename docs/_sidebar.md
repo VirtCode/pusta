@@ -12,7 +12,8 @@
 [Dependencies](structure/dependencies.md) <br>
 [Variables](structure/variables.md) <br>
 &nbsp;&nbsp;&nbsp;&nbsp;[Modifiers](structure/variables/modifiers.md) <br>
-&nbsp;&nbsp;&nbsp;&nbsp;[Control Flow](structure/variables/control.md)
+&nbsp;&nbsp;&nbsp;&nbsp;[Control Flow](structure/variables/control.md) <br>
+[Schemas](structure/schemas.md)
 
 **Working with Pusta:**<br>
 [Workflow](working/workflow.md) <br>

@@ -4,13 +4,19 @@ use colored::{ColoredString, Colorize};
 use log::{error, info};
 use schemars::{generate::SchemaSettings, JsonSchema, SchemaGenerator};
 
-use crate::{config::Config, module::{repository::RepositoryConfig, ModuleConfig}, output::table::{table, Column}, registry::cache::default_cache_dir};
+use crate::{config::Config, module::{repository::RepositoryConfig, ModuleConfig}, output::table::{table, Column}};
 
+pub const DEFAULT_PARENT: &str = "~/.local/share";
 pub const DEFAULT_DIR: &str = "/schemas";
 
 /// Finds the current schema directory ([`crate::registry::cache::default_cache_dir`][`DEFAULT_DIR`])
 pub fn schema_dir() -> String {
-    default_cache_dir() + DEFAULT_DIR
+    let parent = match std::env::var("XDG_DATA_HOME") {
+        Ok(s) => { s }
+        Err(_) => { DEFAULT_PARENT.to_owned() }
+    };
+
+    parent + DEFAULT_DIR
 }
 
 /// Write all schema json files to the specified directory

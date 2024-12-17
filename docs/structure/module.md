@@ -1,7 +1,7 @@
 # Modules
-In Pusta, your entire configuration is split up into Modules. 
+In Pusta, your entire configuration is split up into Modules.
 
-_But what is a module?_ A module is an independent part of your configuration that is scoped to only one component of your system. Such a component could be a software program, like a terminal emulator or a code editor, it could be an important component like a wayland compositor or a display manager, or it could even be something more crucial like your sound backend or your bootloader, or any independent component of your system you can imagine. So as you can see, you can and should have a module for everything. 
+_But what is a module?_ A module is an independent part of your configuration that is scoped to only one component of your system. Such a component could be a software program, like a terminal emulator or a code editor, it could be an important component like a wayland compositor or a display manager, or it could even be something more crucial like your sound backend or your bootloader, or any independent component of your system you can imagine. So as you can see, you can and should have a module for everything.
 
 _And what does a module contain?_ Obviously, a module contains all the configuration for the system component it takes care of. But that's not all. Usually, a module also installs its component over the system package manager or something similar. It also contains scripts and commands that need to be executed for your component to be enabled or for it to run correctly. In summary, a module tries to be as exhaustive as possible about all installation, setup and configuration that is necessary to get that component to the state you'll need it.
 
@@ -10,7 +10,7 @@ _So what's the benefit of all that?_ Well, by modularizing your entire configura
 ## Definition
 To define a new module, head into the base directory of a [repository](repository.md) and create a new directory. This directory will be the base directory for that module. The name of the directory is, unless otherwise specified, also the alias for the module. So the directory should ideally be the name of the component it is scoped to, or something similar.
 
-Inside that directory, create the module file `module.yml`. Inside this file, the properties and behaviour of that module is defined. This file is what actually defines that module, see its properties under the [Properties section](#properties). 
+Inside that directory, create the module file `module.yml`. Inside this file, the properties and behaviour of that module is defined. This file is what actually defines that module, see its properties under the [Properties section](#properties).
 
 Beside the module file, module assets like scripts, configuration files and other resources are placed. These have to be referenced inside the module file and do nothing on their own.
 
@@ -85,7 +85,7 @@ This is the most important part of a module file. Here, in the form of jobs, all
 ## Qualifiers
 Up until now, we have talked about the identifier of a module as an alias. On a more technical level, you would call such an alias an ordinary *qualifier*. Ordinary qualifiers are just one word, and are simple to remember and easy to work with. An example for such a qualifier would simply be `my-module`. The problem is though, that they are not unique. In a real scenario, a qualifier can match multiple different modules, since each different repository can have a module of the same alias.
 
-Because of that, we also have *unique qualifiers*. Unique qualifiers do what their name says, contrary to normal qualifiers, they are unique. They are comprised of their repository alias, a slash, and the normal qualifier of the module. An example for a unique qualifier is `my-repository/my-module`. Internally, pusta always works with the unique qualifier of a module, and will always show the unique one in its output. 
+Because of that, we also have *unique qualifiers*. Unique qualifiers do what their name says, contrary to normal qualifiers, they are unique. They are comprised of their repository alias, a slash, and the normal qualifier of the module. An example for a unique qualifier is `my-repository/my-module`. Internally, pusta always works with the unique qualifier of a module, and will always show the unique one in its output.
 
 When you work with pusta, you can usually use either of the two types of qualifiers. Normal qualifiers are easier to type and remember, while unique qualifiers can be more precise. Because of the fuzziness of the normal qualifier, Pusta will prompt you if there are two possible modules that match your qualifier.
 

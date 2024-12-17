@@ -1,12 +1,28 @@
 use std::any::Any;
 use dyn_clone::{clone_trait_object, DynClone};
 use dyn_eq::{DynEq, eq_trait_object};
+use schemars::JsonSchema;
+use serde::Serialize;
 use crate::jobs::{BuiltJob, JobEnvironment, JobResult};
 
-mod package;
-mod file;
-mod script;
-mod command;
+pub mod package;
+pub mod file;
+pub mod script;
+pub mod command;
+
+#[allow(dead_code)]
+#[derive(Serialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum JobTypes {
+    /// Package job
+    Package(package::PackageJob),
+    /// File job
+    File(file::FileJob),
+    /// Script job
+    Script(script::ScriptJob),
+    /// Command job
+    Command(command::CommandJob)
+}
 
 // Has to be cloned during the install process creating a new installed module and also needs to be compared
 clone_trait_object!(Installable);

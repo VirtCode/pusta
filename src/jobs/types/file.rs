@@ -1,10 +1,11 @@
 use std::path::{PathBuf};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::jobs::helper::{process_variables, resource_dir, resource_load, resource_mark};
 use crate::module::change::{ClearChange, CopyChange, LinkChange, WriteChange};
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
 pub struct FileJob {
     file: String,
     location: String,

@@ -5,13 +5,15 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Error};
 use log::warn;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::module::Module;
 use crate::variables::Variable;
 
 pub const REPOSITORY_CONFIG: &str = "pusta.yml";
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
+#[schemars(title = "Repository")]
 pub struct RepositoryConfig {
     pub alias: Option<String>,
 
@@ -80,7 +82,7 @@ impl Repository {
         let config: RepositoryConfig = serde_yaml::from_reader(
             File::open(&path).with_context(|| format!("failed to open repository config file for {}", &self.name))?
         ).map_err(|e| anyhow!("failed to parse repository config file for {}: {e:#}", &self.name))?;
-        
+
         Ok(config.variables)
     }
 }

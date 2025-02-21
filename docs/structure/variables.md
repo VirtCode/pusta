@@ -11,7 +11,7 @@ This means that you can use the following primitive types:
 - `Number`: a double precision floating-point number
 - `Boolean`: `true` or `false`. As they are specified in yaml, one may also use `yes` or `no`.
 
-These values are then identified by a string identifier, and arranged in objects and lists. Accessing a sub value of an object is done with a dot (`.`). 
+These values are then identified by a string identifier, and arranged in objects and lists. Accessing a sub value of an object is done with a dot (`.`).
 
 So the definition in yaml with the respective names to access them would be for example:
 ```yml
@@ -28,14 +28,20 @@ username: feanor          # username
 This variable structure is loaded from different sources which are then combined into one big structure. The following four sources are used for a module inside a repository:
 - **Module Variables**: These variables are loaded from the `module.yml` file of the module, see [Module Configuration](module.md#properties).
 - **Repository Variables**: These variables are loaded from the `pusta.yml` file of the repository of the module, see [Repository Configuration](repository.md#properties).
+- **Injected Variables**: These variables are collected from all installed modules, see [below](#injected-variables).
 - **System Variables**: These variables are loaded from a system-specific file, see [below](#system-variables).
 - **Magic Variables**: These are variables which are populated by Pusta, depending on the host system.
 
 These different sources are loaded and then merged when installing a module. This merging works like this: If two objects have the same name, they are combined into one big object, where the same properties are merged the same way. If two lists have the same name, they are combined into one list where the second list is appended to the first one. If two values have the same names, the second value is used.
 
-This means that the order in which these variables are merged is important, and it is shown in the list above. This means that the variables are merged in the following order *module*, *repository*, *system* and then *magic*. Informally, this means that **module variables are the least important** and **magic variables are the most important**.
+This means that the order in which these variables are merged is important, and it is shown in the list above. This means that the variables are merged in the following order *module*, *repository*, *injected*, *system* and then *magic*. Informally, this means that **module variables are the least important** and **magic variables are the most important**.
 
 This merging is designed this way, such that you can *override* variables of modules in the repository, such that multiple modules use the same values. And you can override in the system variables, if you want something on only one system.
+
+### Injected Variables
+Injected variables are variables which are sourced from the `injections` field of all installed modules. This means a module can inject variables into the global variable tree if it is being installed. This means other modules can change their things based on which other modules happen to be installed.
+
+*This is a kind-of experimental feature and might require an update after the installation or removal of a module.*
 
 ### System Variables
 The system variables are loaded from the file `.config/pusta/variables.yml`. This file is optional and the variables are treated as empty if it is not found. The content of the file is just the structure described above and nothing more.
@@ -60,13 +66,13 @@ Note that when referencing just a variable, the variable **has to be a value** a
 There are more advanced usages of variables, but those are not described here. See [modifiers](variables/modifiers.md) for how you can modify the contents of your variables before inserting. Or see [control flow](variables/control.md) for information about you can create advanced control flow like if statements.
 
 ## Example
-An example showing the loading order and insertion. We assume the system has the hostname `example`. This example will specify some variable definitions and then see what they are evaluated to by echoing things to console. Yes, it is a very boring example. 
+An example showing the loading order and insertion. We assume the system has the hostname `example`. This example will specify some variable definitions and then see what they are evaluated to by echoing things to console. Yes, it is a very boring example.
 
 The system variables are defined like this:
 ```yml
 # variables.yml
 pusta.hostname: i-will-be-overwritten
-theme: 
+theme:
   color: red
   padding: 3
 ```
@@ -97,22 +103,9 @@ variables:
   default: yes
 ```
 
-Because we have used many echoes, we can now watch what is actually printed on the console: 
+Because we have used many echoes, we can now watch what is actually printed on the console:
 ```
 color: red, padding: 42
 am I default? true
 on host example
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-

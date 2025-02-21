@@ -16,7 +16,7 @@ use crate::output::logger::{disable_indent, enable_indent, section};
 use crate::output::table::{table, Column};
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
-use crate::variables::{generate_magic, load_system, Variable};
+use crate::variables::{construct_injected, generate_magic, load_system, Variable};
 
 /// This struct handles all modules and modifies them. Essentially, every change in install state goes through this struct.
 pub struct Registry {
@@ -151,16 +151,25 @@ impl Registry {
         modify(gatherer, &self.index, &mut self.cache, &self.config);
     }
 
+    pub fn newest_injected_variables(&self) -> Variable {
+        let installed_newest = self.cache.index.modules.iter().map(|installed| {
+            self.index.get(installed.qualifier()).unwrap_or(&installed.module) // orphaned are the newest already
+        }).collect::<Vec<_>>();
+
+        construct_injected(installed_newest)
+    }
+
     /// Updates all modules
     pub fn update_everything(&mut self) {
         section("Looking for updates...");
         let magic = generate_magic();
         let system = load_system(&self.config).unwrap_or(Variable::base());
+        let injected =  self.newest_injected_variables();
 
         let updatable: Vec<ModuleQualifier> = self.cache.index.modules.iter().filter_map(|installed| {
 
             if let Some(indexed) = self.index.get(installed.qualifier()) {
-                if !installed.up_to_date(indexed, &magic, &system, &self.cache) {
+                if !installed.up_to_date(indexed, &magic, &system, &injected, &self.cache) {
                     info!("Found outdated module {}", installed.qualifier().unique());
                     return Some(installed.qualifier().clone())
                 }
@@ -168,7 +177,7 @@ impl Registry {
 
             None
         }).collect();
-        
+
         if updatable.is_empty() {
             section("Everything is already up to date!");
             return;
@@ -229,14 +238,14 @@ impl Registry {
                 Column::new("Alias").force(),
                 Column::new("Location").ellipse(),
             ];
-            
+
             let rows = self.cache.repositories.iter().map(|repo| {
                 [
                     repo.name.bold(),
                     repo.location.to_string_lossy().normal()
                 ]
             }).collect();
-            
+
             table(columns, rows, "  ");
         }
         println!();
@@ -248,12 +257,13 @@ impl Registry {
         } else {
             let magic = generate_magic();
             let system = load_system(&self.config).unwrap_or(Variable::base());
+            let injected = self.newest_injected_variables();
 
             let mut sorted = self.cache.index.modules.iter().collect::<Vec<_>>();
             sorted.sort_by(|a, b| {
                 a.module.qualifier.unique().cmp(&b.module.qualifier.unique())
             });
-            
+
             let columns = [
                 Column::new("Name").ellipse(),
                 Column::new("Qualifier").force(),
@@ -261,10 +271,10 @@ impl Registry {
                 Column::new("Status").force(),
                 Column::new("Added").force()
             ];
-            
+
             let rows = sorted.iter().map(|module| {
                 let info = if let Some(indexed) = self.index.get(&module.module.qualifier) {
-                    if !module.up_to_date(indexed, &magic, &system, &self.cache) {
+                    if !module.up_to_date(indexed, &magic, &injected, &system, &self.cache) {
                         "outdated".yellow()
                     } else {
                         "up-to-date".green()
@@ -274,16 +284,16 @@ impl Registry {
                 };
 
                 let naive: DateTime<Local> = module.built.time.into();
-                
+
                 [
                     module.module.name.bold(),
                     module.module.qualifier.unique().normal(),
                     module.module.version.dimmed(),
                     info,
-                    naive.format("%x").to_string().italic()   
+                    naive.format("%x").to_string().italic()
                 ]
             }).collect();
-            
+
             table(columns, rows, "  ");
         }
         println!();

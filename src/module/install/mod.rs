@@ -21,7 +21,7 @@ use crate::output::logger::section;
 use crate::output::prompt;
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
-use crate::variables::{generate_magic, load_system, merge_variables, Variable};
+use crate::variables::{construct_injected, generate_magic, load_system, merge_variables, Variable};
 
 mod build;
 pub mod depend;
@@ -108,12 +108,12 @@ pub struct InstalledModule {
 }
 
 impl InstalledModule {
-    pub fn up_to_date(&self, new: &Module, magic_variables: &Variable, system_variables: &Variable, cache: &Cache) -> bool {
+    pub fn up_to_date(&self, new: &Module, magic_variables: &Variable, system_variables: &Variable, injected_variables: &Variable, cache: &Cache) -> bool {
         if let Some(repo) = cache.get_repository(self.module.qualifier.repository()) {
             let empty = Variable::base();
             let variables = merge_variables(new.variables.as_ref().unwrap_or_else(|| &empty),
                                             repo.load_variables().unwrap_or(None).as_ref().unwrap_or_else(|| &empty),
-                                            system_variables, magic_variables);
+                                            injected_variables, system_variables, magic_variables);
 
             // either the module sources have changed
             new.checksum == self.module.checksum &&
@@ -159,10 +159,26 @@ impl Display for ModifyType {
 fn build(scheduled: Vec<Scheduled>, cache: &Cache, config: &Config) -> anyhow::Result<Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>>{
     let mut built = vec![];
 
+    // construct module state after update
+    let updated_modules = cache.index.modules.iter().filter_map(|m| {
+        let old = scheduled.iter().find(|s| match s {
+            Scheduled::Install { module, motivation: _ } => &module.qualifier == m.qualifier(),
+            Scheduled::Remove { module } => module.qualifier() == m.qualifier(),
+            Scheduled::Update { old: _, new } => &new.qualifier == m.qualifier()
+        });
+
+        old.map(|s| match s {
+            Scheduled::Install { module, motivation: _ } => Some(module),
+            Scheduled::Remove { module: _} => None,
+            Scheduled::Update { old: _, new } => Some(new),
+        }).unwrap_or(Some(&m.module))
+    }).collect::<Vec<_>>();
+
     let env = ModuleEnvironment {
         package_config: config.system.package_manager.clone(),
         magic_variables: generate_magic(),
-        system_variables: load_system(config).unwrap_or_else(|| Variable::base())
+        system_variables: load_system(config).unwrap_or_else(|| Variable::base()),
+        injected_variables: construct_injected(updated_modules)
     };
 
     for scheduled in scheduled {

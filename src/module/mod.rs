@@ -28,22 +28,34 @@ const MODULE_CONFIG: &str = "module.yml";
 #[derive(Deserialize, JsonSchema)]
 #[schemars(title = "Module", deny_unknown_fields)]
 pub struct ModuleConfig {
+    /// display name
     name: String,
+    /// describes the purpose of the module when it is installed
     description: String,
+    /// primary author
     author: Option<String>,
     // support numeric types as a version is very likely to be recognized as number by the lsp
+    /// current version of the module
     #[schemars(extend("type" = [ "string", "number" ]))]
     version: String,
 
+    /// overrides the module name, by default is directory name
     alias: Option<String>,
+    /// this module provides this module too when installed
     provides: Option<String>,
+    /// list of other modules this depends on
     depends: Option<String>,
+    /// precedence this module has when compared to other modules, mainly used for injections
+    precedence: Option<u32>,
 
+    /// list of jobs to install
     jobs: Vec<Job>,
 
-    variables: Option<Variable>
+    /// variables used only for this module
+    variables: Option<Variable>,
 
-    // actions, variables, lists
+    /// variables injected into the global variable tree when this module is installed
+    injections: Option<Variable>
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -60,8 +72,10 @@ pub struct Module {
 
     jobs: Vec<Job>,
 
-    variables: Option<Variable>
+    variables: Option<Variable>,
 
+    pub injections: Option<Variable>,
+    pub precedence: Option<u32>
 }
 
 impl Module {
@@ -101,9 +115,11 @@ impl Module {
             description: config.description,
             author: config.author,
             version: config.version,
+            precedence: config.precedence,
 
             jobs: config.jobs,
-            variables: config.variables
+            variables: config.variables,
+            injections: config.injections
         }))
     }
 

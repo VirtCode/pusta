@@ -63,9 +63,15 @@ The next category would be the module-specific variables. These are provided lik
 
 variables: # optional - module specific variables
   ...
+
+injections: # optional - variables injected by this module
+  ...
+precedence: [unsigned number] # optional - precedence for injected variables
 ```
 
 - `variables` (optional) - Specifies the module specific variables, which are provided in a normal YAML structure.
+- `injections` (optional) - Specifies variables which are injected into the variable tree at a global level. See the [Variables page](variables.md#injected-variables) for more information.
+- `precedence` (optional) - Sets the precedence of a module when competing with other modules. Higher numbers mean higher precedence. This is mainly used for injected variable merging.
 
 See [Variables](variables.md#loading) for more information about how these variables can be used.
 

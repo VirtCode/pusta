@@ -17,6 +17,8 @@ use log::{debug, error};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
+use crate::module::install::InstalledModule;
+use crate::module::Module;
 
 pub const LEVEL_SEPARATOR: char = '.';
 
@@ -150,12 +152,32 @@ pub fn generate_magic() -> Variable {
     ]))
 }
 
-pub fn merge_variables(module: &Variable, repository: &Variable, system: &Variable, magic: &Variable) -> Variable {
+/// Constructs injected variables for a list of untouched modules
+pub fn construct_injected(mut list: Vec<&Module>) -> Variable {
+
+    list.sort_by(|a, b| {
+        a.precedence.unwrap_or_default().cmp(&b.precedence.unwrap_or_default()).then_with(|| {
+            a.qualifier.unique().cmp(&b.qualifier.unique()).reverse()
+        })
+    });
+
+    let empty = Variable::base();
+    let mut base = Variable::base();
+
+    for module in list {
+        base.merge(module.injections.as_ref().unwrap_or(&empty));
+    }
+
+    base
+}
+
+pub fn merge_variables(module: &Variable, repository: &Variable, injected: &Variable, system: &Variable, magic: &Variable) -> Variable {
     let mut base = Variable::base();
 
     // merge variables in order
     base.merge(module);
     base.merge(repository);
+    base.merge(injected);
     base.merge(system);
     base.merge(magic);
 

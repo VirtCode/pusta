@@ -1,19 +1,15 @@
-use std::fmt::format;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use anyhow::{anyhow, Context, Error};
+use anyhow::{anyhow, Context};
 use chksum::chksum;
 use chksum::hash::SHA1;
-use colored::Colorize;
-use log::{debug, error, info, warn};
+use log::debug;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::Job;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
-use crate::output;
-use crate::output::end_section;
 use crate::variables::Variable;
 use crate::registry::index::Indexable;
 

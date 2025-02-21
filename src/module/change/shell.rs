@@ -1,11 +1,8 @@
-use std::{env, fs, thread};
-use std::io::{BufRead, BufReader, Read};
-use std::ops::Deref;
+use std::{env, thread};
+use std::io::{BufReader, Read};
 use std::path::Path;
 use std::process::{Command, ExitStatus, Stdio};
-use std::thread::{JoinHandle, sleep};
-use std::time::Duration;
-use colored::Colorize;
+use std::thread::JoinHandle;
 
 /// Represents a result of a ran shell
 pub type RunResult = Result<RunData, String>;

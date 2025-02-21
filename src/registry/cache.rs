@@ -1,9 +1,8 @@
 use std::{env, fs};
-use std::env::VarError;
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use anyhow::{anyhow, Context};
-use log::{debug, error, info, warn};
+use log::{debug, info};
 use crate::config::Config;
 use crate::module::install::InstalledModule;
 use crate::module::Module;

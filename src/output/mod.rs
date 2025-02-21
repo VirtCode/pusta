@@ -4,7 +4,7 @@ pub mod table;
 use std::io::{stdin, stdout, Write};
 use std::str::FromStr;
 use colored::Colorize;
-use log::{error, info};
+use log::error;
 use crate::module::Module;
 use crate::output::logger::{disable_indent, enable_indent};
 

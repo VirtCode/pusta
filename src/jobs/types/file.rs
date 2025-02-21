@@ -53,7 +53,7 @@ impl Installable for FileJob {
         let mut built = BuiltJob::new();
 
         // Get and prepare location
-        let mut target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
+        let target = PathBuf::from(shellexpand::tilde(&self.location).as_ref());
         built.change(Box::new(ClearChange::new(target.clone(), false)));
 
         // deploy file to location

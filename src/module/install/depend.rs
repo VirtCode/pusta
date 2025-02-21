@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use anyhow::{anyhow, Context};
 use log::error;
-use crate::module::install::build::install;
 use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::qualifier::{ModuleQualifier};
@@ -108,7 +107,7 @@ impl Resolver {
             }
 
             // search through installable
-            let mut providers = available.providers(&dep);
+            let providers = available.providers(&dep);
             if let Some(m) = prompt_choice_module(
                 &providers,
                 &format!("Multiple modules provide dependency '{dep}' for {}, choose:", module.qualifier.unique())).and_then(|i| providers.get(i).copied()) {

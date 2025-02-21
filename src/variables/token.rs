@@ -147,7 +147,7 @@ pub fn read_token_at(input: &str, position: usize) -> Result<Token, VariableErro
                         // can match token without comma, since it may be the first
                         first = false;
 
-                        let mut token = read_token_at(input, token_pos)?;
+                        let token = read_token_at(input, token_pos)?;
                         token_pos = token.range.end;
                         arguments.push(token);
 
@@ -155,7 +155,7 @@ pub fn read_token_at(input: &str, position: usize) -> Result<Token, VariableErro
                         // next token comes after this
                         token_pos = shift_range(comma_cap.get(0).expect("regex should have group").range(),token_pos).end;
 
-                        let mut token = read_token_at(input, token_pos)?;
+                        let token = read_token_at(input, token_pos)?;
                         token_pos = token.range.end;
                         arguments.push(token);
 
@@ -199,7 +199,7 @@ pub fn shift_range(mut range: Range<usize>, position: usize) -> Range<usize> {
 
 #[cfg(test)]
 mod test {
-    use crate::variables::token::{read_token_at, Token, TokenLiteral, TokenType};
+    use crate::variables::token::{read_token_at, TokenLiteral, TokenType};
 
     #[test]
     fn variable_simple() {

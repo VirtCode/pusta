@@ -1,6 +1,6 @@
 use std::{env};
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use anyhow::{anyhow, Context};
 use log::debug;
 use schemars::JsonSchema;

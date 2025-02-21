@@ -103,7 +103,7 @@ fn evaluate_expression_for_list<'a>(expr: &Expression, variables: &'a Variable, 
         (ExpressionContent::Variable(name), true) => {
             counter.used(&name);
             match variables.find(&name) {
-                (Some(Variable::List(list))) => { Ok(&list) }
+                Some(Variable::List(list)) => { Ok(&list) }
                 _ => {
                    return Err(VariableError {
                        title: "unexpected variable type for list".to_string(),

@@ -1,19 +1,14 @@
 mod shell;
 pub mod worker;
 
-use std::{env, fs, io};
+use std::fs;
 use std::fs::Permissions;
 use std::os::unix::fs::{PermissionsExt, symlink};
-use std::os::unix::raw::time_t;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::SystemTime;
 use chksum::hash::SHA1;
 use dyn_clone::{clone_trait_object, DynClone};
 use fs_extra::dir::CopyOptions;
-use log::{debug, info};
 use serde::{Deserialize, Serialize};
-use crate::registry::cache::default_cache_dir;
 
 clone_trait_object!(AtomicChange);
 

@@ -19,7 +19,7 @@ jobs:
         run: cargo build --verbose --release
 
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: pusta-nightly-${{ github.sha }}
           path: target/release/pusta

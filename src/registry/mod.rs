@@ -1,18 +1,17 @@
 pub mod index;
 pub mod cache;
 
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use chrono::{DateTime, Local, NaiveDateTime};
+use std::path::Path;
+use chrono::{DateTime, Local};
 use colored::Colorize;
 use log::{debug, error, info, warn};
 use crate::config::Config;
-use crate::module::install::{Gatherer, InstalledModule, modify};
+use crate::module::install::{Gatherer, modify};
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
-use crate::output::{logger, prompt_choice_module, prompt_yn};
-use crate::output::logger::{disable_indent, enable_indent, section};
+use crate::output::prompt_choice_module;
+use crate::output::logger::section;
 use crate::output::table::{table, Column};
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};

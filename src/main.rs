@@ -1,13 +1,10 @@
 #![feature(iter_intersperse)]
 extern crate core;
 
-use std::{env, fs};
+use std::env;
 use std::path::PathBuf;
 use std::process::exit;
-use log::{debug, error, info};
-use module::ModuleConfig;
-use schemars::generate::SchemaSettings;
-use schemars::schema_for;
+use log::{debug, error};
 use crate::command::{Command, RepositoryCommand, SubCommand};
 use crate::config::Config;
 use clap::Parser;

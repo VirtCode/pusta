@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
@@ -6,7 +5,7 @@ use std::process::exit;
 use anyhow::Context;
 use log::error;
 use uuid::Uuid;
-use crate::module::change::{ChangeError, ChangeResult, ChangeRuntime};
+use crate::module::change::ChangeRuntime;
 use crate::module::change::worker::{SOCKET_PATH, WORKER_TMP_PATH, WorkerRequest, WorkerResponse};
 
 /// Handles the worker and prints errors

@@ -17,7 +17,6 @@ use log::{debug, error};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
-use crate::module::install::InstalledModule;
 use crate::module::Module;
 
 pub const LEVEL_SEPARATOR: char = '.';

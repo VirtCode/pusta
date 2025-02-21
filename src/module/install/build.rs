@@ -1,4 +1,3 @@
-use std::cmp;
 use std::time::SystemTime;
 use anyhow::anyhow;
 use log::{debug, error, info};
@@ -6,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, TimestampMilliSeconds};
 use serde_with::formats::Flexible;
 use crate::config::ConfigPackage;
-use crate::jobs::{BuiltJob, Job, JobEnvironment, JobError};
+use crate::jobs::{BuiltJob, JobEnvironment, JobError};
 use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::repository::Repository;
-use crate::variables::{generate_magic, merge_variables, Variable};
+use crate::variables::{merge_variables, Variable};
 
 pub(super) struct ModuleInstructions {
     pub new: Option<BuiltModule>,

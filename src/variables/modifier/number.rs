@@ -80,7 +80,7 @@ impl Modifier for DivisionModifier {
 pub struct NegativeModifier;
 pub const NEGATIVE_MODIFIER: &str = "neg";
 impl Modifier for NegativeModifier {
-    fn evaluate(&self, variable: Value, mut parameters: Vec<Value>) -> Result<Value, ModifierError> {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
 
         if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))) }
 

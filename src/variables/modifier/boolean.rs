@@ -7,7 +7,7 @@ use crate::variables::Value::Boolean;
 pub struct NotModifier;
 pub const NOT_MODIFIER: &str = "not";
 impl Modifier for NotModifier {
-    fn evaluate(&self, variable: Value, mut parameters: Vec<Value>) -> Result<Value, ModifierError> {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
 
         if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))) }
 
@@ -23,7 +23,7 @@ impl Modifier for NotModifier {
 pub struct OrModifier;
 pub const OR_MODIFIER: &str = "or";
 impl Modifier for OrModifier {
-    fn evaluate(&self, variable: Value, mut parameters: Vec<Value>) -> Result<Value, ModifierError> {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
         if parameters.len() != 1 { return Err(ModifierError::simple(ParameterAmount(1))) }
 
         match (variable, &parameters[0]) {
@@ -39,7 +39,7 @@ impl Modifier for OrModifier {
 pub struct AndModifier;
 pub const AND_MODIFIER: &str = "and";
 impl Modifier for AndModifier {
-    fn evaluate(&self, variable: Value, mut parameters: Vec<Value>) -> Result<Value, ModifierError> {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
         if parameters.len() != 1 { return Err(ModifierError::simple(ParameterAmount(1))) }
 
         match (variable, &parameters[0]) {

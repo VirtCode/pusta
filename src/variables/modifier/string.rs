@@ -1,4 +1,3 @@
-use serde::de::IntoDeserializer;
 use crate::variables::modifier::{Modifier, ModifierError};
 use crate::variables::modifier::ModifierErrorType::{ParameterAmount, ParameterType, VariableType};
 use crate::variables::Value;

@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use anyhow::{anyhow, Context, Error};
+use anyhow::{anyhow, Context};
 use log::warn;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

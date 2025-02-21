@@ -1,24 +1,18 @@
 pub mod run;
 
 use std::collections::HashMap;
-use std::{env, fs, io, thread};
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
-use std::os::fd::AsFd;
+use std::{env, fs};
+use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::str::FromStr;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
+use std::process::Command;
 use std::thread::sleep;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use anyhow::{anyhow, Context};
-use lazy_regex::{Lazy, lazy_regex};
-use log::{debug, error, warn};
-use regex::Regex;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::module::change::{AtomicChange, ChangeResult, ChangeRuntime, RunChange};
+use crate::module::change::{AtomicChange, ChangeResult};
 use crate::module::change::worker::WorkerResponse::Login;
 
 const WORKER_SUBCOMMAND: &str = "worker";
@@ -53,7 +47,7 @@ impl WorkerPortal {
         path.push(id.to_string());
 
         // open socket
-        let mut socket = UnixListener::bind(&path)
+        let socket = UnixListener::bind(&path)
             .with_context(|| format!("failed to bind to unix socket at '{}'", path.to_string_lossy()))?;
 
         socket.set_nonblocking(true)

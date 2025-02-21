@@ -1,7 +1,4 @@
-use std::ops::Deref;
-use anyhow::Error;
 use dyn_eq::DynEq;
-use log::{info, warn};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
@@ -49,7 +46,7 @@ impl Installable for PackageJob {
         let mut built = BuiltJob::new();
 
         // remove removed modules
-        if (!remove.is_empty()) {
+        if !remove.is_empty() {
             built.change(Box::new(RunChange::new(
                 env.package_config.create_remove(&remove),
                 None, env.path.clone(), true)));

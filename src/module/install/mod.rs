@@ -1,13 +1,10 @@
 use std::collections::HashMap;
-use std::fmt::{Display, format, Formatter, Write};
+use std::fmt::{Display, Formatter, Write};
 use std::fs;
-use std::io::Read;
-use std::ops::Deref;
 use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
-use std::time::SystemTime;
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use colored::{ColoredString, Colorize};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
@@ -260,7 +257,7 @@ fn ask(changes: &Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
                 if !motivation.depends.is_empty() {
                     let string = motivation.depends.iter().map(|q| q.unique()).collect::<Vec<String>>().join(" ");
                     format!(", depends on: {}", string.italic())
-                } else if (motivation.because.is_empty()) {
+                } else if motivation.because.is_empty() {
                     format!(", {}", "no dependencies".dimmed())
                 } else { String::new() }
             }, {

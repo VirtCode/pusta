@@ -2,7 +2,9 @@ mod boolean;
 mod string;
 mod number;
 
+use number::{ParseNumberModifier, PARSE_NUMBER_MODIFIER};
 use regex::Regex;
+use string::{ShellexpandModifier, SHELLEXPAND_MODIFIER};
 use crate::variables::{Value, VariableError};
 use crate::variables::context::{Expression, ExpressionModifier};
 use crate::variables::modifier::boolean::{NOT_MODIFIER, AND_MODIFIER, OR_MODIFIER, IF_MODIFIER, NotModifier, AndModifier, OrModifier, IfModifier};
@@ -117,6 +119,7 @@ pub fn get_modifier(name: &str) -> Option<Box<dyn Modifier>> {
         UPPER_CASE_MODIFIER => { Box::new(UpperCaseModifier) }
         LOWER_CASE_MODIFIER => { Box::new(LowerCaseModifier) }
         CONTAINS_MODIFIER => { Box::new(ContainsModifier) }
+        SHELLEXPAND_MODIFIER => { Box::new(ShellexpandModifier) }
 
         NOT_MODIFIER => { Box::new(NotModifier) }
         AND_MODIFIER => { Box::new(AndModifier) }
@@ -128,6 +131,7 @@ pub fn get_modifier(name: &str) -> Option<Box<dyn Modifier>> {
         MULTIPLY_MODIFIER => { Box::new(MultiplyModifier) }
         DIVISION_MODIFIER => { Box::new(DivisionModifier) }
         NEGATIVE_MODIFIER => { Box::new(NegativeModifier) }
+        PARSE_NUMBER_MODIFIER => { Box::new(ParseNumberModifier) }
 
         EQ_MODIFIER => { Box::new(EqModifier) }
 

@@ -56,6 +56,21 @@ impl Modifier for ContainsModifier {
     }
 }
 
+/// This modifier checks whether a string contains something else
+pub struct ShellexpandModifier;
+pub const SHELLEXPAND_MODIFIER: &str = "tilde";
+impl Modifier for ShellexpandModifier {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
+        if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))); }
+
+        if let String(s) = variable {
+            Ok(String(shellexpand::tilde(&s).to_string()))
+        } else {
+            Err(ModifierError::simple(VariableType(String("".into()))))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::variables::modifier::get_modifier;
@@ -96,6 +111,20 @@ mod test {
         // invalid
         assert!(matches!(modifier.evaluate(Boolean(false), vec![]), Err(_)));
         assert!(matches!(modifier.evaluate(String("asdf".to_string()), vec![]), Err(_)));
+        assert!(matches!(modifier.evaluate(String("asdf".to_string()), vec![Boolean(true)]), Err(_)));
+    }
+
+    #[test]
+    fn tilde() {
+
+        let modifier = get_modifier("tilde").unwrap();
+
+        // valid
+        let path = "~/games/amogus";
+        assert_eq!(String(shellexpand::tilde(path).to_string()), modifier.evaluate(String(path.to_string()), vec![]).unwrap());
+
+        // invalid
+        assert!(matches!(modifier.evaluate(Boolean(false), vec![]), Err(_)));
         assert!(matches!(modifier.evaluate(String("asdf".to_string()), vec![Boolean(true)]), Err(_)));
     }
 

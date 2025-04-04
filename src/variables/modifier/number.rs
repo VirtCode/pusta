@@ -1,7 +1,7 @@
 use crate::variables::modifier::{Modifier, ModifierError, ModifierErrorNote, ModifierErrorType};
 use crate::variables::modifier::ModifierErrorType::{ParameterAmount, ParameterType, VariableType};
 use crate::variables::Value;
-use crate::variables::Value::{Number};
+use crate::variables::Value::{Number, String};
 
 /// This modifier adds two numbers together
 pub struct AddModifier;
@@ -92,10 +92,29 @@ impl Modifier for NegativeModifier {
     }
 }
 
+/// This modifier parses a number from a string
+pub struct ParseNumberModifier;
+pub const PARSE_NUMBER_MODIFIER: &str = "parsenum";
+impl Modifier for ParseNumberModifier {
+    fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
+        if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))) }
+
+        if let String(value) = variable {
+            if let Ok(val) = value.parse() {
+                Ok(Number(val))
+            } else {
+                Err( ModifierError::noted(VariableType(Value::String("".into())), vec![ModifierErrorNote::Variable("string can not be parsed as a number".into())]))
+            }
+        } else {
+            Err(ModifierError::simple(VariableType(String("".into()))))
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::variables::modifier::{get_modifier, Modifier};
-    use crate::variables::Value::{Boolean, Number};
+    use crate::variables::Value::{Boolean, Number, String};
 
     fn check_two_args(modifier: &Box<dyn Modifier>) {
         assert!(matches!(modifier.evaluate(Boolean(false), vec![]), Err(_)));
@@ -158,6 +177,19 @@ mod test {
         // invalid inputs
         assert!(matches!(modifier.evaluate(Number(0.0), vec![Number(0.0)]), Err(_)));
         assert!(matches!(modifier.evaluate(Boolean(false), vec![]), Err(_)));
+    }
+
+    #[test]
+    fn parse() {
+        let modifier = get_modifier("parsenum").unwrap();
+
+        // valid inputs
+        assert_eq!(Number(-100.7828), modifier.evaluate(String("-100.7828".into()), vec![]).unwrap());
+
+        // invalid inputs
+        assert!(matches!(modifier.evaluate(String("amogus not a number".into()), vec![]), Err(_)));
+        assert!(matches!(modifier.evaluate(Boolean(false), vec![]), Err(_)));
+        assert!(matches!(modifier.evaluate(String("".into()), vec![Number(0.0)]), Err(_)));
     }
 
 }

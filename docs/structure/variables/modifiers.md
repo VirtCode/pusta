@@ -29,12 +29,14 @@ The following modifiers are currently available. A modifier listed under its *na
 
 | name             | on type     | parameters     | effect                                                                                                                 |
 |------------------|-------------|----------------|------------------------------------------------------------------------------------------------------------------------|
-| `color-format`   | *string*    | *string*       | formats a color to the desired format, see [a detailed explanation](#color-format)                                     |
+| `format-color`   | *string*    | *string*       | formats a color to the desired format, see [a detailed explanation](#color-format)                                     |
 | `eq`             | *any*       | *any*          | compares the variable and the parameters, giving a *boolean* value of `true` when they are the same type and content   |
 | `if`             | *boolean*   | *any*, *any*   | acts like a ternary operator, if the variable is true, the first parameter is given, otherwise the second one          |
 | `contains`       | *string*    | *string*       | gives a *boolean* `true` if the variable contains the parameter                                                        |
 | `case-upper`     | *string*    |                | converts the variable to upper case                                                                                    |
 | `case-lower`     | *string*    |                | converts the variable to lower case                                                                                    |
+| `tilde`          | *string*    |                | expands the `~` in the given string to the user's home directory                                                       |
+| `parsenum`       | *string*    |                | parses the variable from string to a number                                                                            |
 | `not`            | *boolean*   |                | inverts the boolean value of the variable                                                                              |
 | `and`            | *boolean*   | *boolean*      | gives the boolean and of the variable and the parameter                                                                |
 | `or`             | *boolean*   | *boolean*      | gives the boolean or of the variable and the parameter                                                                 |
@@ -49,7 +51,7 @@ This modifier can be used to format colors to suit any possible configuration fo
 
 Input colors must be strictly formatted as hexadecimal. It can contain an alpha value and start with a slash. If no alpha value is provided the color is fully opaque with an alpha of `1`. These are permitted formats:
 ```
-#RRGGBB, RRGGBB, #RRGGBBAA or RRGGBBAA 
+#RRGGBB, RRGGBB, #RRGGBBAA or RRGGBBAA
 ```
 
 A single format part starts with a `%`, formats one color component and consists of two parts, e.g:
@@ -76,7 +78,7 @@ col.inactive_border = %% color.border.inactive:format-color("rgba(%Xr%Xg%Xb%Xa)"
 
 # using half of a value for some things
 gaps_out = %% look.layout.gaps %%
-gaps_in = %% look.layout.gaps:div(2) %% 
+gaps_in = %% look.layout.gaps:div(2) %%
 
 # compare and insert as a one-liner
 layout = %% pusta.hostname:eq("desktop"):if("master", "dwindle") %%

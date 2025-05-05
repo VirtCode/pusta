@@ -6,7 +6,7 @@ use anyhow::anyhow;
 use chrono::{DateTime, Local};
 use colored::Colorize;
 use log::{debug, error, info, warn};
-use crate::config::{Config, ConfigPackage};
+use crate::config::Config;
 use crate::module::host::Host;
 use crate::module::install::{Gatherer, modify};
 use crate::module::install::build::ModuleEnvironment;
@@ -323,7 +323,7 @@ impl Registry {
             let required = self.hosts.iter().flat_map(|h| h.modules.iter().map(|q|
                 if q.contains('/') { q.clone() }
                 else { format!("{}/{q}", h.repository) } // build unique qualifier (yes, sketcyh)
-            )).filter_map(|(quali)| {
+            )).filter_map(|quali| {
                 let modules = self.index.query(&quali);
 
                 if modules.is_empty() || modules.len() > 1 {

@@ -20,7 +20,6 @@ use crate::config::Config;
 use crate::module::host::Host;
 use crate::module::install::build::ModuleEnvironment;
 use crate::module::Module;
-use crate::module::repository::Repository;
 
 pub const LEVEL_SEPARATOR: char = '.';
 

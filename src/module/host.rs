@@ -1,13 +1,8 @@
-use std::borrow::Cow;
-use std::ffi::OsStr;
-use std::fs;
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use anyhow::{anyhow, Context};
-use log::warn;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use crate::module::Module;
+use serde::Deserialize;
 use crate::module::repository::Repository;
 use crate::variables::Variable;
 

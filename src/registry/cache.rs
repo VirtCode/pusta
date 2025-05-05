@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context};
 use log::{debug, info};
 use crate::config::Config;
-use crate::module::host::Host;
 use crate::module::install::InstalledModule;
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;

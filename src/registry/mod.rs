@@ -2,6 +2,7 @@ pub mod index;
 pub mod cache;
 
 use std::path::Path;
+use anyhow::anyhow;
 use chrono::{DateTime, Local};
 use colored::Colorize;
 use log::{debug, error, info, warn};
@@ -198,7 +199,36 @@ impl Registry {
             None
         }).collect();
 
-        if updatable.is_empty() {
+        section("Checking host module lists...");
+
+        let required = self.hosts.iter().flat_map(|h| h.modules.iter().map(|q|
+            if q.contains('/') { (q, q.clone()) }
+            else { (q, format!("{}/{q}", h.repository)) } // build unique qualifier (yes, sketcyh)
+        )).map(|(def, quali)| {
+            let modules = self.index.query(&quali);
+
+            if modules.is_empty()  {
+                Err(anyhow!("no module found for host requirement `{def}`"))
+            } else if modules.len() > 1 {
+                Err(anyhow!("host requirement `{def}` is ambiguous"))
+            } else {
+                Ok(modules[0].qualifier.clone())
+            }
+        }).filter(|module| {
+            let Ok(module) = module else {
+                return true;
+            };
+
+            // only keep modules which are not yet installed
+            self.cache.index.get(module).is_none()
+        }).collect::<anyhow::Result<Vec<_>>>();
+
+        let required = match required {
+            Ok(v) => v,
+            Err(e) => { error!("{e}"); return },
+        };
+
+        if updatable.is_empty() && required.is_empty() {
             section("Everything is already up to date!");
             return;
         }
@@ -206,6 +236,13 @@ impl Registry {
         let mut gatherer = Gatherer::default();
         for q in updatable {
             if let Err(e) = gatherer.update(q, &self.cache.index, &self.index) {
+                error!("{e}");
+                return;
+            }
+        }
+
+        for q in required {
+            if let Err(e) = gatherer.install(q, &self.cache.index, &self.index) {
                 error!("{e}");
                 return;
             }
@@ -283,6 +320,19 @@ impl Registry {
                 package_config: Default::default(),
             };
 
+            let required = self.hosts.iter().flat_map(|h| h.modules.iter().map(|q|
+                if q.contains('/') { q.clone() }
+                else { format!("{}/{q}", h.repository) } // build unique qualifier (yes, sketcyh)
+            )).filter_map(|(quali)| {
+                let modules = self.index.query(&quali);
+
+                if modules.is_empty() || modules.len() > 1 {
+                    None
+                } else {
+                    Some(modules[0].qualifier.clone())
+                }
+            }).collect::<Vec<ModuleQualifier>>();
+
             let mut sorted = self.cache.index.modules.iter().collect::<Vec<_>>();
             sorted.sort_by(|a, b| {
                 a.module.qualifier.unique().cmp(&b.module.qualifier.unique())
@@ -292,6 +342,7 @@ impl Registry {
                 Column::new("Name").ellipse(),
                 Column::new("Qualifier").force(),
                 Column::new("Version"),
+                Column::new("Req").force().centered(),
                 Column::new("Status").force(),
                 Column::new("Added").force()
             ];
@@ -307,12 +358,15 @@ impl Registry {
                     "orphaned".red()
                 };
 
+                let required = if required.contains(module.qualifier()) { "X".bright_blue() } else { "".normal() };
+
                 let naive: DateTime<Local> = module.built.time.into();
 
                 [
                     module.module.name.bold(),
                     module.module.qualifier.unique().normal(),
                     module.module.version.dimmed(),
+                    required,
                     info,
                     naive.format("%x").to_string().italic()
                 ]

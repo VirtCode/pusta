@@ -17,6 +17,7 @@ pub mod repository;
 pub mod qualifier;
 pub mod change;
 pub mod install;
+pub mod host;
 
 /// File declaring the module config
 const MODULE_CONFIG: &str = "module.yml";

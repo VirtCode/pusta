@@ -18,9 +18,11 @@ use crate::output::logger::section;
 use crate::output::prompt;
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
-use crate::variables::{construct_injected, generate_magic, load_system, merge_variables, Variable};
+use crate::variables::{construct_host, construct_injected, generate_magic, load_system, merge_variables, Variable};
 
-mod build;
+use super::host::Host;
+
+pub mod build;
 pub mod depend;
 mod run;
 
@@ -105,12 +107,12 @@ pub struct InstalledModule {
 }
 
 impl InstalledModule {
-    pub fn up_to_date(&self, new: &Module, magic_variables: &Variable, system_variables: &Variable, injected_variables: &Variable, cache: &Cache) -> bool {
+    pub fn up_to_date(&self, new: &Module, env: &ModuleEnvironment, cache: &Cache) -> bool {
         if let Some(repo) = cache.get_repository(self.module.qualifier.repository()) {
             let empty = Variable::base();
             let variables = merge_variables(new.variables.as_ref().unwrap_or_else(|| &empty),
                                             repo.load_variables().unwrap_or(None).as_ref().unwrap_or_else(|| &empty),
-                                            injected_variables, system_variables, magic_variables);
+                                            env);
 
             // either the module sources have changed
             new.checksum == self.module.checksum &&
@@ -153,7 +155,7 @@ impl Display for ModifyType {
 }
 
 /// Builds the changes to a uniform format
-fn build(scheduled: Vec<Scheduled>, cache: &Cache, config: &Config) -> anyhow::Result<Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>>{
+fn build(scheduled: Vec<Scheduled>, cache: &Cache, hosts: &Vec<Host>, config: &Config) -> anyhow::Result<Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>>{
     let mut built = vec![];
 
     // construct module state after update
@@ -175,6 +177,7 @@ fn build(scheduled: Vec<Scheduled>, cache: &Cache, config: &Config) -> anyhow::R
         package_config: config.system.package_manager.clone(),
         magic_variables: generate_magic(),
         system_variables: load_system(config).unwrap_or_else(|| Variable::base()),
+        host_variables: construct_host(hosts),
         injected_variables: construct_injected(updated_modules)
     };
 
@@ -321,7 +324,7 @@ fn save(changes: Vec<(Module, ModuleInstructions, ModuleMotivation, ModifyType)>
     Ok(())
 }
 
-pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, config: &Config) {
+pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, hosts: &Vec<Host>, config: &Config) {
     // 1. gather
     section("Resolving dependencies...");
     let scheduled = match gatherer.gather(index, &cache.index) {
@@ -334,7 +337,7 @@ pub fn modify(gatherer: Gatherer, index: &Index<Module>, cache: &mut Cache, conf
 
     // 2. build
     section("Building modules...");
-    let built = match build(scheduled, &cache, config) {
+    let built = match build(scheduled, &cache, hosts, config) {
         Ok(b) => { b }
         Err(e) => {
             error!("{e}");

@@ -17,7 +17,10 @@ use log::{debug, error};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::config::Config;
+use crate::module::host::Host;
+use crate::module::install::build::ModuleEnvironment;
 use crate::module::Module;
+use crate::module::repository::Repository;
 
 pub const LEVEL_SEPARATOR: char = '.';
 
@@ -170,15 +173,31 @@ pub fn construct_injected(mut list: Vec<&Module>) -> Variable {
     base
 }
 
-pub fn merge_variables(module: &Variable, repository: &Variable, injected: &Variable, system: &Variable, magic: &Variable) -> Variable {
+/// Construct host variables from a list of hosts (that is already filtered)
+pub fn construct_host(list: &Vec<Host>) -> Variable {
+    let mut list = list.iter().collect::<Vec<_>>();
+    list.sort_by(|a, b| a.repository.cmp(&b.repository).reverse());
+
+    let empty = Variable::base();
+    let mut base = Variable::base();
+
+    for host in list {
+        base.merge(host.variables.as_ref().unwrap_or(&empty));
+    }
+
+    base
+}
+
+pub fn merge_variables(module: &Variable, repository: &Variable, env: &ModuleEnvironment) -> Variable {
     let mut base = Variable::base();
 
     // merge variables in order
     base.merge(module);
     base.merge(repository);
-    base.merge(injected);
-    base.merge(system);
-    base.merge(magic);
+    base.merge(&env.injected_variables);
+    base.merge(&env.host_variables);
+    base.merge(&env.system_variables);
+    base.merge(&env.magic_variables);
 
     base
 }

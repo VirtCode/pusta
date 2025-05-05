@@ -1,5 +1,4 @@
 #![feature(iter_intersperse)]
-extern crate core;
 
 use std::env;
 use std::path::PathBuf;

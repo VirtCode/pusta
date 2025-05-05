@@ -5,8 +5,10 @@ use std::path::Path;
 use chrono::{DateTime, Local};
 use colored::Colorize;
 use log::{debug, error, info, warn};
-use crate::config::Config;
+use crate::config::{Config, ConfigPackage};
+use crate::module::host::Host;
 use crate::module::install::{Gatherer, modify};
+use crate::module::install::build::ModuleEnvironment;
 use crate::module::Module;
 use crate::module::qualifier::ModuleQualifier;
 use crate::module::repository::Repository;
@@ -15,12 +17,13 @@ use crate::output::logger::section;
 use crate::output::table::{table, Column};
 use crate::registry::cache::Cache;
 use crate::registry::index::{Index, Indexable};
-use crate::variables::{construct_injected, generate_magic, load_system, Variable};
+use crate::variables::{construct_host, construct_injected, generate_magic, load_system, Variable};
 
 /// This struct handles all modules and modifies them. Essentially, every change in install state goes through this struct.
 pub struct Registry {
     index: Index<Module>,
     cache: Cache,
+    hosts: Vec<Host>,
     config: Config
 }
 
@@ -31,6 +34,7 @@ impl Registry {
         Registry {
             index: Index::new(),
             cache: Cache::new(&config),
+            hosts: vec![],
             config: (*config).clone()
         }
     }
@@ -46,6 +50,18 @@ impl Registry {
                 Err(e) => { warn!("Failed to index repository '{}': {e}", repo.name) }
             }
         }
+
+        // Index hosts
+        for repo in &self.cache.repositories {
+            match repo.load_hosts() {
+                Ok(mut vec) => { self.hosts.append(&mut vec) }
+                Err(e) => { warn!("Failed to index hosts of repository '{}': {e}", repo.name) }
+            }
+        }
+
+        // remove irrelevant hosts
+        let hostname = whoami::hostname();
+        self.hosts.retain(|s|  s.hostname.eq_ignore_ascii_case(&hostname));
 
         Ok(())
     }
@@ -122,7 +138,7 @@ impl Registry {
         }
 
         debug!("Starting modify");
-        modify(gatherer, &self.index, &mut self.cache, &self.config);
+        modify(gatherer, &self.index, &mut self.cache, &self.hosts, &self.config);
     }
 
     /// Uninstalls a module from the system
@@ -147,7 +163,7 @@ impl Registry {
         }
 
         debug!("Starting modify");
-        modify(gatherer, &self.index, &mut self.cache, &self.config);
+        modify(gatherer, &self.index, &mut self.cache, &self.hosts, &self.config);
     }
 
     pub fn newest_injected_variables(&self) -> Variable {
@@ -161,14 +177,19 @@ impl Registry {
     /// Updates all modules
     pub fn update_everything(&mut self) {
         section("Looking for updates...");
-        let magic = generate_magic();
-        let system = load_system(&self.config).unwrap_or(Variable::base());
-        let injected =  self.newest_injected_variables();
+
+        let env = ModuleEnvironment {
+            magic_variables: generate_magic(),
+            system_variables: load_system(&self.config).unwrap_or(Variable::base()),
+            injected_variables: self.newest_injected_variables(),
+            host_variables: construct_host(&self.hosts),
+            package_config: Default::default(),
+        };
 
         let updatable: Vec<ModuleQualifier> = self.cache.index.modules.iter().filter_map(|installed| {
 
             if let Some(indexed) = self.index.get(installed.qualifier()) {
-                if !installed.up_to_date(indexed, &magic, &system, &injected, &self.cache) {
+                if !installed.up_to_date(indexed, &env, &self.cache) {
                     info!("Found outdated module {}", installed.qualifier().unique());
                     return Some(installed.qualifier().clone())
                 }
@@ -191,7 +212,7 @@ impl Registry {
         }
 
         debug!("Starting modify");
-        modify(gatherer, &self.index, &mut self.cache, &self.config);
+        modify(gatherer, &self.index, &mut self.cache, &self.hosts, &self.config);
     }
 
     /// Updates a single module
@@ -223,7 +244,7 @@ impl Registry {
         }
 
         debug!("Starting modify");
-        modify(gatherer, &self.index, &mut self.cache, &self.config);
+        modify(gatherer, &self.index, &mut self.cache, &self.hosts, &self.config);
     }
 
     /// Lists modules and repositories
@@ -254,9 +275,13 @@ impl Registry {
         if self.cache.index.modules.is_empty() {
             info!("{}", "No modules are currently installed".italic().dimmed())
         } else {
-            let magic = generate_magic();
-            let system = load_system(&self.config).unwrap_or(Variable::base());
-            let injected = self.newest_injected_variables();
+            let env = ModuleEnvironment {
+                magic_variables: generate_magic(),
+                system_variables: load_system(&self.config).unwrap_or(Variable::base()),
+                injected_variables: self.newest_injected_variables(),
+                host_variables: construct_host(&self.hosts),
+                package_config: Default::default(),
+            };
 
             let mut sorted = self.cache.index.modules.iter().collect::<Vec<_>>();
             sorted.sort_by(|a, b| {
@@ -273,7 +298,7 @@ impl Registry {
 
             let rows = sorted.iter().map(|module| {
                 let info = if let Some(indexed) = self.index.get(&module.module.qualifier) {
-                    if !module.up_to_date(indexed, &magic, &injected, &system, &self.cache) {
+                    if !module.up_to_date(indexed, &env, &self.cache) {
                         "outdated".yellow()
                     } else {
                         "up-to-date".green()

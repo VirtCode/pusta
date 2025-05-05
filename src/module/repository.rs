@@ -7,6 +7,7 @@ use anyhow::{anyhow, Context};
 use log::warn;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use crate::module::host::{Host, HOST_CONFIG_FILEENDING};
 use crate::module::Module;
 use crate::variables::Variable;
 
@@ -73,6 +74,25 @@ impl Repository {
         }
 
         Ok(modules)
+    }
+
+    /// loads all host files of the repository
+    pub fn load_hosts(&self) -> anyhow::Result<Vec<Host>> {
+        Ok(
+            fs::read_dir(&self.location)?
+                .filter_map(|e| e.map(|e| e.path()).ok())
+                .filter(|path| path.file_name().map(|name| name.to_string_lossy().ends_with(HOST_CONFIG_FILEENDING)).unwrap_or(false))
+                .filter_map(|path| {
+                    match Host::try_load(&path, &self) {
+                        Ok(host) => Some(host),
+                        Err(e) => {
+                            warn!("Failed to load host file '{}' of repository {}: {e:#}", path.file_name().map(OsStr::to_string_lossy).unwrap_or(Cow::Borrowed("unknown module")), self.name);
+                            None
+                        }
+                    }
+                })
+            .collect()
+        )
     }
 
     /// Loads the variables from the repository config

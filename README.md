@@ -19,7 +19,7 @@
 </div>
 
 > [!WARNING]  
-> Do not use this for your system! This was a great playground to get to know the rust language and ecosystem, but as a result this project is filled with buggy and dubious code. So I do not intend on maintaining this project properly in the future. I am however still continuing to use it on all my systems, so a fix or two may still be pushed in the future.
+> Do not use this for your system! This was a great playground to get to know the rust language and ecosystem, but as a result this project is filled with buggy and dubious code. So I do not intend on maintaining this project properly in the future. I am however still continuing to use it on all my systems, so a quickly implemented feature or a fix or two may still be pushed in the future.
  
   ---
 

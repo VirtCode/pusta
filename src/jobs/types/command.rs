@@ -13,7 +13,8 @@ pub struct CommandJob {
     reinstall: Option<bool>,
     show_output: Option<bool>,
     root: Option<bool>,
-    running_directory: Option<String>
+    running_directory: Option<String>,
+    failable: Option<bool>,
 }
 
 #[typetag::serde(name = "command")]
@@ -37,7 +38,7 @@ impl Installable for CommandJob {
         } else { None };
 
         // add change
-        built.change(Box::new(RunChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true))));
+        built.change(Box::new(RunChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true), self.failable.unwrap_or_default())));
 
         // set settings
         built.root = self.root.unwrap_or_default();

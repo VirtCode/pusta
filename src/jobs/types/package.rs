@@ -26,7 +26,7 @@ impl Installable for PackageJob {
         built.change(Box::new(RunChange::new(
             env.package_config.create_install(&names),
             Some(env.package_config.create_remove(&names)),
-            env.path.clone(), true)));
+            env.path.clone(), true, false)));
 
         built.root = env.package_config.root;
 
@@ -49,14 +49,14 @@ impl Installable for PackageJob {
         if !remove.is_empty() {
             built.change(Box::new(RunChange::new(
                 env.package_config.create_remove(&remove),
-                None, env.path.clone(), true)));
+                None, env.path.clone(), true, false)));
         }
 
         // install new modules
         built.change(Box::new(RunChange::new(
             env.package_config.create_install(&install),
             Some(env.package_config.create_remove(&new)),
-            env.path.clone(), true)));
+            env.path.clone(), true, false)));
 
         built.root = env.package_config.root;
 

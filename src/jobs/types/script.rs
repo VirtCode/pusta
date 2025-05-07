@@ -13,7 +13,8 @@ pub struct ScriptJob {
     reinstall: Option<bool>,
     show_output: Option<bool>,
     root: Option<bool>,
-    running_directory: Option<String>
+    running_directory: Option<String>,
+    failable: Option<bool>
 }
 
 #[typetag::serde(name = "script")]
@@ -45,7 +46,7 @@ impl Installable for ScriptJob {
             Some(process_variables(&uninstall, path, env, &mut built)?)
         } else { None };
 
-        built.change(Box::new(ScriptChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true))));
+        built.change(Box::new(ScriptChange::new(install, uninstall, running_directory, self.show_output.unwrap_or(true), self.failable.unwrap_or_default())));
 
         built.root = self.root.unwrap_or_default();
 

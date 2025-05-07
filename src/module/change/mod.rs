@@ -439,12 +439,15 @@ pub struct RunChange {
     dir: PathBuf,
 
     /// Whether the command should print output and the user should be able to interact with it
-    interactive: bool
+    interactive: bool,
+    /// Whether the command is allowed to fail
+    #[serde(default)]
+    failable: bool
 }
 
 impl RunChange {
-    pub fn new(apply: String, revert: Option<String>, dir: PathBuf, interactive: bool) -> Self {
-        Self { apply, revert, dir, interactive }
+    pub fn new(apply: String, revert: Option<String>, dir: PathBuf, interactive: bool, failable: bool) -> Self {
+        Self { apply, revert, dir, interactive, failable }
     }
 }
 
@@ -456,7 +459,7 @@ impl AtomicChange for RunChange {
             .map_err(|e| ChangeError::command_fatal(self.apply.clone(), e))?;
 
         // Check result
-        if !result.status.success() {
+        if !self.failable && !result.status.success() {
             return Err(ChangeError::command(self.apply.clone(), result.stdout, result.stderr, result.status.code().unwrap_or(i32::MAX)))
         }
 
@@ -471,7 +474,7 @@ impl AtomicChange for RunChange {
                 .map_err(|e| ChangeError::command_fatal(revert.clone(), e))?;
 
             // Check result
-            if !result.status.success() {
+            if !self.failable && !result.status.success() {
                 return Err(ChangeError::command(revert.clone(), result.stdout, result.stderr, result.status.code().unwrap_or(i32::MAX)))
             }
         }
@@ -504,12 +507,15 @@ pub struct ScriptChange {
     dir: PathBuf,
 
     /// Whether the command should print output and the user should be able to interact with it
-    interactive: bool
+    interactive: bool,
+    /// Whether the script is allowed to fail
+    #[serde(default)]
+    failable: bool
 }
 
 impl ScriptChange {
-    pub fn new(apply: String, revert: Option<String>, dir: PathBuf, interactive: bool) -> Self {
-        Self { apply, revert, dir, interactive }
+    pub fn new(apply: String, revert: Option<String>, dir: PathBuf, interactive: bool, failable: bool) -> Self {
+        Self { apply, revert, dir, interactive, failable }
     }
 }
 
@@ -524,7 +530,7 @@ impl AtomicChange for ScriptChange {
             .map_err(|e| ChangeError::script_fatal(self.apply.clone(), e))?;
 
         // Check result
-        if !result.status.success() {
+        if !self.failable && !result.status.success() {
             return Err(ChangeError::script(self.apply.clone(), result.stdout, result.stderr, result.status.code().unwrap_or(i32::MAX)))
         }
 
@@ -542,7 +548,7 @@ impl AtomicChange for ScriptChange {
                 .map_err(|e| ChangeError::script_fatal(revert.clone(), e))?;
 
             // Check result
-            if !result.status.success() {
+            if !self.failable && !result.status.success() {
                 return Err(ChangeError::script(revert.clone(), result.stdout, result.stderr, result.status.code().unwrap_or(i32::MAX)))
             }
         }

@@ -3,7 +3,7 @@ use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobError, JobResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::helper::process_variables;
-use crate::module::change::RunChange;
+use crate::module::change::{DirectoryChange, RunChange};
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
 pub struct CommandJob {
@@ -26,6 +26,8 @@ impl Installable for CommandJob {
         let mut running_directory = env.path.clone();
         if let Some(path) = self.running_directory.as_ref() {
             running_directory.push(shellexpand::tilde(path).as_ref());
+
+            built.change(Box::new(DirectoryChange::new(running_directory.clone())));
         }
 
         // create commands

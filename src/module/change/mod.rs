@@ -257,6 +257,42 @@ impl AtomicChange for ClearChange {
     }
 }
 
+/// This change creates a directory
+#[derive(Serialize, Deserialize, Clone)]
+pub struct DirectoryChange {
+    /// Directory to create
+    directory: PathBuf
+}
+
+impl DirectoryChange {
+    pub fn new(directory: PathBuf) -> Self {
+        Self { directory }
+    }
+}
+
+#[typetag::serde]
+impl AtomicChange for DirectoryChange {
+    fn apply(&self, _runtime: &ChangeRuntime) -> ChangeResult {
+        fs::create_dir_all(&self.directory)
+            .map_err(|e| ChangeError::filesystem(self.directory.clone(), "failed to create directory".into(), e.to_string()))?;
+
+        Ok(())
+    }
+
+    fn revert(&self, _runtime: &ChangeRuntime) -> ChangeResult {
+        Ok(())
+    }
+
+    fn describe(&self) -> String {
+        format!("creating the directory if it doesn't exist '{}'", &self.directory.to_string_lossy())
+    }
+
+    fn files(&self) -> Vec<(String, String)> {
+        vec![]
+    }
+}
+
+
 /// This change inserts some text into a file somewhere
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WriteChange {

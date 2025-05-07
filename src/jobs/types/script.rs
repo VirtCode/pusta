@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::jobs::{BuiltJob, Installable, JobEnvironment, JobResult};
 use crate::jobs::helper::{process_variables, resource_load};
-use crate::module::change::ScriptChange;
+use crate::module::change::{DirectoryChange, ScriptChange};
 
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, JsonSchema)]
 pub struct ScriptJob {
@@ -25,6 +25,8 @@ impl Installable for ScriptJob {
         let mut running_directory = env.path.clone();
         if let Some(path) = self.running_directory.as_ref() {
             running_directory.push(shellexpand::tilde(path).as_ref());
+
+            built.change(Box::new(DirectoryChange::new(running_directory.clone())));
         }
 
         // process install script

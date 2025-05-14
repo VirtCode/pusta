@@ -10,7 +10,7 @@ The first type of control flow pusta supports are conditionals, or as it should 
 %% !if my-variable-with-modifiers %%
 
 insert this if true
-    
+
 %% !else %%
 
 insert this if false
@@ -18,7 +18,7 @@ insert this if false
 %% !end %%
 ```
 
-We can see that there are many words prefixed with an exclamation mark (`!`). These words are **keywords** and are *not* variable references. There are only a few of those keywords, here we used `if`, `else` and `end`. 
+We can see that there are many words prefixed with an exclamation mark (`!`). These words are **keywords** and are *not* variable references. There are only a few of those keywords, here we used `if`, `else` and `end`.
 
 In the first statement, we have an `if` keyword followed by a [variable reference](../variables.md#syntax), **which can contain modifiers**. If this reference evaluates to a `Boolean` and is `true`, the part until the `else` gets inserted. Otherwise the part from the `else` to the `end` is inserted. If the reference does not evaluate to a boolean, an error will be shown before the installation or update. Note, that the `else` part is optional and can be omitted. In this case, the part until the `end` will be inserted if `true` and nothing otherwise.
 
@@ -35,6 +35,8 @@ e.g. %% _.name %%
 ```
 
 We can see that we now use the keyword `list`, followed by a reference to the list we want to use. Inside the following block, we have now access to the special variable `_`, which is the current list item for each iteration. The text is then inserted into the file after each other. Note that the newlines between the two keywords are also inserted, which means that if you don't have any newlines, everything will be on one line.
+
+Using list expansion not only list variables can be expanded but also group variables. When expanding group variables they get transformed to a list of objects with a `key` and a `value` property. The `key` holds the key of the group field and the `value` property holds the value of the group field.
 
 ## Examples
 Let's see an example for a conditional. In this case, we include some part of the config only if we are on a specific host:
@@ -53,7 +55,7 @@ my_rename_rule = {
 %% !end %%
 ```
 
-A more interesting example would be with using lists. Here we have the following in our ssh config, which would expand our list into host definitions. 
+A more interesting example would be with using lists. Here we have the following in our ssh config, which would expand our list into host definitions.
 ```
 %% !list hosts %%
 Host %% _.name %%

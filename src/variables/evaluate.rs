@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::Range;
 use crate::variables::context::{Context, Expression, ExpressionContent, Statement, StatementType};
 use crate::variables::{Value, Variable, VariableError};
@@ -85,7 +86,7 @@ fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable, 
 
                 // overwrite _ entry
                 match &mut variables_custom {
-                    Variable::Group(g) => { g.insert("_".to_string(), v.clone()); }
+                    Variable::Group(g) => { g.insert("_".to_string(), v); }
                     _ => {}
                 }
 
@@ -98,12 +99,21 @@ fn evaluate_statement(input: &str, statement: &Statement, variables: &Variable, 
 }
 
 /// Evaluates the expression for a list. This should only be temporary, because modifiers should support lists and objects in the future too.
-fn evaluate_expression_for_list<'a>(expr: &Expression, variables: &'a Variable, counter: &mut VariableEvalCounter) -> Result<&'a Vec<Variable>, VariableError> {
+fn evaluate_expression_for_list(expr: &Expression, variables: &Variable, counter: &mut VariableEvalCounter) -> Result<Vec<Variable>, VariableError> {
     match (&expr.content, expr.modifiers.is_empty()) {
         (ExpressionContent::Variable(name), true) => {
             counter.used(&name);
             match variables.find(&name) {
-                Some(Variable::List(list)) => { Ok(&list) }
+                Some(Variable::List(list)) => { Ok(list.clone()) },
+                Some(Variable::Group(group)) => {
+                    let list = group.iter().map(|(key, value)| {
+                        let mut group = HashMap::new();
+                        group.insert(String::from("key"), Variable::Value(Value::String(key.clone())));
+                        group.insert(String::from("value"), value.clone());
+                        Variable::Group(group)
+                    }).collect::<Vec<_>>();
+                    Ok(list)
+                }
                 _ => {
                    return Err(VariableError {
                        title: "unexpected variable type for list".to_string(),

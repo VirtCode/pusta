@@ -15,6 +15,7 @@ it, separated by a colon (`:`). The arguments are specified inside of braces whi
 ```
 %% pusta.hostname:contains("laptop-") %%
 %% pusta.hostname:case-upper %%
+%% pusta.hostname:case-snake("case-kebab") %%
 ```
 
 Modifiers can be chained and take other variables with modifiers as parameters, to create some more interesting results:
@@ -35,6 +36,10 @@ The following modifiers are currently available. A modifier listed under its *na
 | `contains`       | *string*    | *string*       | gives a *boolean* `true` if the variable contains the parameter                                                        |
 | `case-upper`     | *string*    |                | converts the variable to upper case                                                                                    |
 | `case-lower`     | *string*    |                | converts the variable to lower case                                                                                    |
+| `case-camel`     | *string*    | *string*       | converts the variable from the parameter case to camel case                                                            |
+| `case-snake`     | *string*    | *string*       | converts the variable from the parameter case to snake case                                                            |
+| `case-pascal`    | *string*    | *string*       | converts the variable from the parameter case to pascal case                                                           |
+| `case-kebab`     | *string*    | *string*       | converts the variable from the parameter case to kebab case                                                            |
 | `tilde`          | *string*    |                | expands the `~` in the given string to the user's home directory                                                       |
 | `parsenum`       | *string*    |                | parses the variable from string to a number                                                                            |
 | `not`            | *boolean*   |                | inverts the boolean value of the variable                                                                              |

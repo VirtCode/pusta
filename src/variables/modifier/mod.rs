@@ -4,7 +4,7 @@ mod number;
 
 use number::{ParseNumberModifier, PARSE_NUMBER_MODIFIER};
 use regex::Regex;
-use string::{ShellexpandModifier, SHELLEXPAND_MODIFIER};
+use string::{CamelCaseModifier, KebabCaseModifier, PascalCaseModifier, ShellexpandModifier, SnakeCaseModifier, CAMEL_CASE_MODIFIER, KEBAB_CASE_MODIFIER, PASCAL_CASE_MODIFIER, SHELLEXPAND_MODIFIER, SNAKE_CASE_MODIFIER};
 use crate::variables::{Value, VariableError};
 use crate::variables::context::{Expression, ExpressionModifier};
 use crate::variables::modifier::boolean::{NOT_MODIFIER, AND_MODIFIER, OR_MODIFIER, IF_MODIFIER, NotModifier, AndModifier, OrModifier, IfModifier};
@@ -118,6 +118,10 @@ pub fn get_modifier(name: &str) -> Option<Box<dyn Modifier>> {
     Some(match name {
         UPPER_CASE_MODIFIER => { Box::new(UpperCaseModifier) }
         LOWER_CASE_MODIFIER => { Box::new(LowerCaseModifier) }
+        CAMEL_CASE_MODIFIER => { Box::new(CamelCaseModifier) }
+        SNAKE_CASE_MODIFIER => { Box::new(SnakeCaseModifier) }
+        PASCAL_CASE_MODIFIER => { Box::new(PascalCaseModifier) }
+        KEBAB_CASE_MODIFIER => { Box::new(KebabCaseModifier) }
         CONTAINS_MODIFIER => { Box::new(ContainsModifier) }
         SHELLEXPAND_MODIFIER => { Box::new(ShellexpandModifier) }
 

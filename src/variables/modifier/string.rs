@@ -11,9 +11,7 @@ pub const UPPER_CASE_MODIFIER: &str = "case-upper";
 impl Modifier for UpperCaseModifier {
     fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
         // Expects no parameters
-        if !parameters.is_empty() {
-            return Err(ModifierError::simple(ParameterAmount(0)));
-        }
+        if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))); }
 
         // Evaluate
         match variable {
@@ -29,9 +27,7 @@ pub const LOWER_CASE_MODIFIER: &str = "case-lower";
 impl Modifier for LowerCaseModifier {
     fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
         // Expects no parameters
-        if !parameters.is_empty() {
-            return Err(ModifierError::simple(ParameterAmount(0)));
-        }
+        if !parameters.is_empty() { return Err(ModifierError::simple(ParameterAmount(0))); }
 
         // Evaluate
         match variable {
@@ -89,9 +85,7 @@ pub struct CamelCaseModifier;
 pub const CAMEL_CASE_MODIFIER: &str = "case-camel";
 impl Modifier for CamelCaseModifier {
     fn evaluate(&self, variable: Value, parameters: Vec<Value>) -> Result<Value, ModifierError> {
-        if parameters.len() != 1 {
-            return Err(ModifierError::simple(ParameterAmount(1)));
-        }
+        if parameters.len() != 1 { Err(ModifierError::simple(ParameterAmount(1)))? }
 
         match (variable, &parameters[0]) {
             (String(s), String(c)) => {
